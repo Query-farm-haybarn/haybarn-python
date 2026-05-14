@@ -4,20 +4,20 @@ This module provides DB API 2.0 compliant type objects for DuckDB, allowing appl
 to check column types returned by queries against standard database API categories.
 
 Example:
-    >>> import duckdb
+    >>> import haybarn
     >>>
-    >>> conn = duckdb.connect()
+    >>> conn = haybarn.connect()
     >>> cursor = conn.cursor()
     >>> cursor.execute("SELECT 'hello' as text_col, 42 as num_col, CURRENT_DATE as date_col")
     >>>
     >>> # Check column types using DB API type objects
     >>> for i, desc in enumerate(cursor.description):
     >>>     col_name, col_type = desc[0], desc[1]
-    >>>     if col_type == duckdb.STRING:
+    >>>     if col_type == haybarn.STRING:
     >>>         print(f"{col_name} is a string type")
-    >>>     elif col_type == duckdb.NUMBER:
+    >>>     elif col_type == haybarn.NUMBER:
     >>>         print(f"{col_name} is a numeric type")
-    >>>     elif col_type == duckdb.DATETIME:
+    >>>     elif col_type == haybarn.DATETIME:
     >>>         print(f"{col_name} is a date/time type")
 
 See Also:
@@ -25,7 +25,7 @@ See Also:
     - DuckDB Type System: https://duckdb.org/docs/sql/data_types/overview
 """
 
-from duckdb import sqltypes
+from haybarn import sqltypes
 
 
 class DBAPITypeObject:

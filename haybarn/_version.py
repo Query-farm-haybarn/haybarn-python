@@ -2,21 +2,21 @@
 # Version API
 #
 # We provide three symbols:
-# - duckdb.__version__: The version of this package
-# - duckdb.__duckdb_version__: The version of duckdb that is bundled
-# - duckdb.version(): A human-readable version string containing both of the above
+# - haybarn.__version__: The version of this package
+# - haybarn.__duckdb_version__: The version of duckdb that is bundled
+# - haybarn.version(): A human-readable version string containing both of the above
 # ----------------------------------------------------------------------
 from importlib.metadata import version as _dist_version
 
-import _duckdb
+import _haybarn
 
-__version__: str = _dist_version("duckdb")
+__version__: str = _dist_version("haybarn")
 """Version of the DuckDB Python Package."""
 
-__duckdb_version__: str = _duckdb.__version__
+__duckdb_version__: str = _haybarn.__version__
 """Version of DuckDB that is bundled."""
 
 
 def version() -> str:
     """Human-friendly formatted version string of both the distribution package and the bundled DuckDB engine."""
-    return f"{__version__} (with duckdb {_duckdb.__version__})"
+    return f"{__version__} (with duckdb {_haybarn.__version__})"

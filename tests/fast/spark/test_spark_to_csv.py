@@ -7,7 +7,7 @@ import pytest
 from conftest import getTimeSeriesData
 from spark_namespace import USE_ACTUAL_SPARK
 
-from duckdb import InvalidInputException, read_csv
+from haybarn import InvalidInputException, read_csv
 
 if USE_ACTUAL_SPARK:
     pytest.skip(
@@ -17,7 +17,7 @@ if USE_ACTUAL_SPARK:
         allow_module_level=True,
     )
 
-pytest.importorskip("duckdb.experimental.spark")
+pytest.importorskip("haybarn.experimental.spark")
 
 
 @pytest.fixture

@@ -28,7 +28,7 @@ class StatementOptions(enum.Enum):
     """Statement options specific to the DuckDB driver."""
 
     #: The number of rows per batch. Defaults to 2048.
-    BATCH_ROWS = "adbc.duckdb.query.batch_rows"
+    BATCH_ROWS = "adbc.haybarn.query.batch_rows"
 
 
 def connect(path: str | None = None) -> adbc_driver_manager.AdbcDatabase:
@@ -41,7 +41,7 @@ def connect(path: str | None = None) -> adbc_driver_manager.AdbcDatabase:
 @functools.cache
 def driver_path() -> str:
     """Get the path to the DuckDB ADBC driver."""
-    duckdb_module_spec = importlib.util.find_spec("_duckdb")
+    duckdb_module_spec = importlib.util.find_spec("_haybarn")
     if duckdb_module_spec is None:
         msg = "Could not find duckdb shared library. Did you pip install duckdb?"
         raise ImportError(msg)

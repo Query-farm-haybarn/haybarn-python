@@ -2,11 +2,11 @@ import pytest
 from spark_namespace import USE_ACTUAL_SPARK
 from spark_namespace.sql.types import Row
 
-from duckdb.experimental.spark.exception import (
+from haybarn.experimental.spark.exception import (
     ContributionsAcceptedError,
 )
 
-_ = pytest.importorskip("duckdb.experimental.spark")
+_ = pytest.importorskip("haybarn.experimental.spark")
 from spark_namespace.sql import SparkSession
 
 

@@ -1,7 +1,7 @@
 # ruff: noqa: F401
 """The DuckDB Python Package.
 
-This module re-exports the DuckDB C++ extension (`_duckdb`) and provides DuckDB's public API.
+This module re-exports the DuckDB C++ extension (`_haybarn`) and provides DuckDB's public API.
 
 Note:
 - Some symbols exposed here are implementation details of DuckDB's C++ engine.
@@ -9,7 +9,7 @@ Note:
 - Future versions may move them into submodules with deprecation warnings.
 """
 
-from _duckdb import (
+from _haybarn import (
     BinderException,
     CaseExpression,
     CatalogException,
@@ -157,7 +157,7 @@ from _duckdb import (
     write_csv,
 )
 
-from duckdb._dbapi_type_object import (
+from haybarn._dbapi_type_object import (
     BINARY,
     DATETIME,
     NUMBER,
@@ -165,12 +165,12 @@ from duckdb._dbapi_type_object import (
     STRING,
     DBAPITypeObject,
 )
-from duckdb._version import (
+from haybarn._version import (
     __duckdb_version__,
     __version__,
     version,
 )
-from duckdb.value.constant import (
+from haybarn.value.constant import (
     BinaryValue,
     BitValue,
     BlobValue,

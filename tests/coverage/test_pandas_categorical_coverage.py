@@ -1,6 +1,6 @@
 import pandas as pd
 
-import duckdb
+import haybarn
 
 
 def check_result_list(res):
@@ -9,7 +9,7 @@ def check_result_list(res):
 
 
 def check_create_table(category):
-    conn = duckdb.connect()
+    conn = haybarn.connect()
 
     conn.execute("PRAGMA enable_verification")
     df_in = pd.DataFrame(
@@ -28,7 +28,7 @@ def check_create_table(category):
         }
     )
 
-    df_out = duckdb.query_df(df_in, "data", "SELECT * FROM data")
+    df_out = haybarn.query_df(df_in, "data", "SELECT * FROM data")
     df_out = df_out.df()
     assert df_in.equals(df_out)
 

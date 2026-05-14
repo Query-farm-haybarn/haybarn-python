@@ -3,12 +3,12 @@ import sys
 
 import pytest
 
-import duckdb
+import haybarn
 
 
 @pytest.fixture
 def tbl_table():
-    con = duckdb.default_connection()
+    con = haybarn.default_connection()
     con.execute("drop table if exists tbl CASCADE")
     con.execute("create table tbl (i integer)")
     yield
@@ -17,18 +17,18 @@ def tbl_table():
 
 @pytest.fixture
 def scoped_default(duckdb_cursor):
-    default = duckdb.connect(":default:")
-    duckdb.set_default_connection(duckdb_cursor)
+    default = haybarn.connect(":default:")
+    haybarn.set_default_connection(duckdb_cursor)
     # Overwrite the default connection
     yield
     # Set it back on finalizing of the function
-    duckdb.set_default_connection(default)
+    haybarn.set_default_connection(default)
 
 
 class TestRAPIQuery:
     @pytest.mark.parametrize("steps", [1, 2, 3, 4])
     def test_query_chain(self, steps):
-        con = duckdb.default_connection()
+        con = haybarn.default_connection()
         amount = 1000000
         rel = None
         for _ in range(steps):
@@ -40,7 +40,7 @@ class TestRAPIQuery:
 
     @pytest.mark.parametrize("input", [[5, 4, 3], [], [1000]])
     def test_query_table(self, tbl_table, input):
-        con = duckdb.default_connection()
+        con = haybarn.default_connection()
         rel = con.table("tbl")
         for row in input:
             rel.insert([row])
@@ -50,7 +50,7 @@ class TestRAPIQuery:
         assert result.fetchall() == [(x,) for x in input]
 
     def test_query_table_basic(self, tbl_table):
-        con = duckdb.default_connection()
+        con = haybarn.default_connection()
         rel = con.table("tbl")
         # Querying a table relation
         rel = rel.query("x", "select 5")
@@ -58,7 +58,7 @@ class TestRAPIQuery:
         assert result.fetchall() == [(5,)]
 
     def test_query_table_qualified(self, duckdb_cursor):
-        con = duckdb.default_connection()
+        con = haybarn.default_connection()
         con.execute("create schema fff")
 
         # Create table in fff schema
@@ -66,10 +66,10 @@ class TestRAPIQuery:
         assert con.table("fff.t2").fetchall() == [(1,)]
 
     def test_query_insert_into_relation(self, tbl_table):
-        con = duckdb.default_connection()
+        con = haybarn.default_connection()
         rel = con.query("select i from range(1000) tbl(i)")
         # Can't insert into this, not a table relation
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             rel.insert([5])
 
     def test_query_non_select(self, duckdb_cursor):
@@ -83,15 +83,15 @@ class TestRAPIQuery:
         rel = duckdb_cursor.query("select [1,2,3,4]")
         duckdb_cursor.execute("create table tbl as select range(10)")
         # Table already exists
-        with pytest.raises(duckdb.CatalogException):
+        with pytest.raises(haybarn.CatalogException):
             rel.query("relation", "create table tbl as select * from relation")
 
         # View referenced does not exist
-        with pytest.raises(duckdb.CatalogException):
+        with pytest.raises(haybarn.CatalogException):
             rel.query("relation", "create table tbl as select * from not_a_valid_view")
 
     def test_query_table_unrelated(self, tbl_table):
-        con = duckdb.default_connection()
+        con = haybarn.default_connection()
         rel = con.table("tbl")
         # Querying a table relation
         rel = rel.query("x", "select 5")
@@ -99,7 +99,7 @@ class TestRAPIQuery:
         assert result.fetchall() == [(5,)]
 
     def test_query_non_select_result(self, duckdb_cursor):
-        with pytest.raises(duckdb.ParserException, match="syntax error"):
+        with pytest.raises(haybarn.ParserException, match="syntax error"):
             duckdb_cursor.query("selec 42")
 
         res = duckdb_cursor.query("explain select 42").fetchall()
@@ -145,50 +145,50 @@ class TestRAPIQuery:
         assert res == [(84,)]
 
     def test_set_default_connection(self, scoped_default):
-        duckdb.sql("create table t as select 42")
-        assert duckdb.table("t").fetchall() == [(42,)]
-        con = duckdb.connect(":default:")
+        haybarn.sql("create table t as select 42")
+        assert haybarn.table("t").fetchall() == [(42,)]
+        con = haybarn.connect(":default:")
 
         # Uses the same db as the module
         assert con.table("t").fetchall() == [(42,)]
 
-        con2 = duckdb.connect()
+        con2 = haybarn.connect()
         con2.sql("create table t as select 21")
         assert con2.table("t").fetchall() == [(21,)]
         # Change the db used by the module
-        duckdb.set_default_connection(con2)
+        haybarn.set_default_connection(con2)
 
-        with pytest.raises(duckdb.CatalogException, match="Table with name d does not exist"):
+        with pytest.raises(haybarn.CatalogException, match="Table with name d does not exist"):
             con2.table("d").fetchall()
 
-        assert duckdb.table("t").fetchall() == [(21,)]
+        assert haybarn.table("t").fetchall() == [(21,)]
 
-        duckdb.sql("create table d as select [1,2,3]")
+        haybarn.sql("create table d as select [1,2,3]")
 
-        assert duckdb.table("d").fetchall() == [([1, 2, 3],)]
+        assert haybarn.table("d").fetchall() == [([1, 2, 3],)]
         assert con2.table("d").fetchall() == [([1, 2, 3],)]
 
     def test_set_default_connection_error(self, scoped_default):
         with pytest.raises(TypeError, match="Invoked with: None"):
             # set_default_connection does not allow None
-            duckdb.set_default_connection(None)
+            haybarn.set_default_connection(None)
 
         with pytest.raises(TypeError, match="Invoked with: 5"):
-            duckdb.set_default_connection(5)
+            haybarn.set_default_connection(5)
 
-        assert duckdb.sql("select 42").fetchall() == [(42,)]
-        duckdb.close()
+        assert haybarn.sql("select 42").fetchall() == [(42,)]
+        haybarn.close()
 
         # This works just fine because the default connection is silently replaced with a new one
-        duckdb.sql("select 42").fetchall()
+        haybarn.sql("select 42").fetchall()
 
-        con2 = duckdb.connect()
-        duckdb.set_default_connection(con2)
-        assert duckdb.sql("select 42").fetchall() == [(42,)]
+        con2 = haybarn.connect()
+        haybarn.set_default_connection(con2)
+        assert haybarn.sql("select 42").fetchall() == [(42,)]
 
-        con3 = duckdb.connect()
+        con3 = haybarn.connect()
         con3.close()
-        duckdb.set_default_connection(con3)
+        haybarn.set_default_connection(con3)
 
         # The closed default connection gets replaced with a new one silently
-        duckdb.sql("select 42").fetchall()
+        haybarn.sql("select 42").fetchall()

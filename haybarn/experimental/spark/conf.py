@@ -1,4 +1,4 @@
-from duckdb.experimental.spark.exception import ContributionsAcceptedError
+from haybarn.experimental.spark.exception import ContributionsAcceptedError
 
 
 class SparkConf:  # noqa: D101

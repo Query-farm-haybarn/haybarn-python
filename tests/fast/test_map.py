@@ -5,7 +5,7 @@ from typing import NoReturn
 import pandas as pd
 import pytest
 
-import duckdb
+import haybarn
 
 
 # column count differs from bind
@@ -18,13 +18,13 @@ def evil1(df):
 
 class TestMap:
     def test_evil_map(self, duckdb_cursor):
-        testrel = duckdb.values([1, 2])
+        testrel = haybarn.values([1, 2])
         rel = testrel.map(evil1, schema={"i": str})
-        with pytest.raises(duckdb.InvalidInputException, match="Expected 1 columns from UDF, got 2"):
+        with pytest.raises(haybarn.InvalidInputException, match="Expected 1 columns from UDF, got 2"):
             rel.df()
 
     def test_map(self, duckdb_cursor):
-        testrel = duckdb.values([1, 2])
+        testrel = haybarn.values([1, 2])
         conn = duckdb_cursor
         conn.execute("CREATE TABLE t (a integer)")
         empty_rel = conn.table("t")
@@ -66,21 +66,21 @@ class TestMap:
         def return_empty_df(df):
             return pd.DataFrame()
 
-        with pytest.raises(duckdb.InvalidInputException, match="Expected 1 columns from UDF, got 2"):
+        with pytest.raises(haybarn.InvalidInputException, match="Expected 1 columns from UDF, got 2"):
             print(testrel.map(evil1).df())
 
-        with pytest.raises(duckdb.InvalidInputException, match="UDF column type mismatch"):
+        with pytest.raises(haybarn.InvalidInputException, match="UDF column type mismatch"):
             print(testrel.map(evil2).df())
 
-        with pytest.raises(duckdb.InvalidInputException, match="UDF column name mismatch"):
+        with pytest.raises(haybarn.InvalidInputException, match="UDF column name mismatch"):
             print(testrel.map(evil3).df())
 
         with pytest.raises(
-            duckdb.InvalidInputException, match=r"Expected the UDF to return an object of type 'pandas\.DataFrame'"
+            haybarn.InvalidInputException, match=r"Expected the UDF to return an object of type 'pandas\.DataFrame'"
         ):
             print(testrel.map(evil4).df())
 
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             print(testrel.map(evil5).df())
 
         # not a function
@@ -94,16 +94,16 @@ class TestMap:
         testrel.map(return_dataframe).df().equals(pd.DataFrame({"A": [1]}))
 
         with pytest.raises(
-            duckdb.InvalidInputException, match="UDF returned more than 2048 rows, which is not allowed"
+            haybarn.InvalidInputException, match="UDF returned more than 2048 rows, which is not allowed"
         ):
             testrel.map(return_big_dataframe).df()
 
         empty_rel.map(return_dataframe).df().equals(pd.DataFrame({"A": []}))
 
-        with pytest.raises(duckdb.InvalidInputException, match="No return value from Python function"):
+        with pytest.raises(haybarn.InvalidInputException, match="No return value from Python function"):
             testrel.map(return_none).df()
 
-        with pytest.raises(duckdb.InvalidInputException, match="Need a DataFrame with at least one column"):
+        with pytest.raises(haybarn.InvalidInputException, match="Need a DataFrame with at least one column"):
             testrel.map(return_empty_df).df()
 
     def test_map_with_object_column(self, duckdb_cursor):
@@ -143,7 +143,7 @@ class TestMap:
         df = pd.DataFrame(
             {"date": pd.Series([date(2000, 1, 1), date(2000, 1, 2)], dtype="datetime64[us]"), "days_to_add": [1, 2]}
         )
-        rel = duckdb.from_df(df)
+        rel = haybarn.from_df(df)
         rel = process(rel)
         x = rel.fetchdf()
         assert x["days_to_add"].to_numpy()[0] == 1
@@ -153,22 +153,22 @@ class TestMap:
             df["i"] = df["i"].astype(str)
             return df
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         rel = con.sql("select i from range (10) tbl(i)")
-        assert rel.types[0] == duckdb.NUMBER
+        assert rel.types[0] == haybarn.NUMBER
         mapped_rel = rel.map(cast_to_string, schema={"i": str})
-        assert mapped_rel.types[0] == duckdb.STRING
+        assert mapped_rel.types[0] == haybarn.STRING
 
     def test_explicit_schema_returntype_mismatch(self):
         def does_nothing(df):
             return df
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         rel = con.sql("select i from range(10) tbl(i)")
         # expects the mapper to return a string column
         rel = rel.map(does_nothing, schema={"i": str})
         with pytest.raises(
-            duckdb.InvalidInputException, match=re.escape("UDF column type mismatch, expected [VARCHAR], got [BIGINT]")
+            haybarn.InvalidInputException, match=re.escape("UDF column type mismatch, expected [VARCHAR], got [BIGINT]")
         ):
             rel.fetchall()
 
@@ -176,20 +176,20 @@ class TestMap:
         def renames_column(df):
             return pd.DataFrame({"a": df["i"]})
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         rel = con.sql("select i from range(10) tbl(i)")
         rel = rel.map(renames_column, schema={"i": int})
-        with pytest.raises(duckdb.InvalidInputException, match=re.escape("UDF column name mismatch")):
+        with pytest.raises(haybarn.InvalidInputException, match=re.escape("UDF column name mismatch")):
             rel.fetchall()
 
     def test_explicit_schema_error(self):
         def no_op(df):
             return df
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         rel = con.sql("select 42")
         with pytest.raises(
-            duckdb.InvalidInputException,
+            haybarn.InvalidInputException,
             match=re.escape("Invalid Input Error: 'schema' should be given as a Dict[str, DuckDBType]"),
         ):
             rel.map(no_op, schema=[int])
@@ -198,10 +198,10 @@ class TestMap:
         def returns_series(df):
             return df.loc[:, "i"]
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         rel = con.sql("select i, i as j from range(10) tbl(i)")
         with pytest.raises(
-            duckdb.InvalidInputException,
+            haybarn.InvalidInputException,
             match=r"Expected the UDF to return an object of type 'pandas\.DataFrame', found "
             r"'<class 'pandas\.(core\.series\.)?Series'>' instead",
         ):
@@ -211,11 +211,11 @@ class TestMap:
         def returns_subset(df):
             return pd.DataFrame({"i": df.loc[:, "i"]})
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         rel = con.sql("select i, i as j from range(10) tbl(i)")
         rel = rel.map(returns_subset, schema={"i": int, "j": int})
         with pytest.raises(
-            duckdb.InvalidInputException, match="Invalid Input Error: Expected 2 columns from UDF, got 1"
+            haybarn.InvalidInputException, match="Invalid Input Error: Expected 2 columns from UDF, got 1"
         ):
             rel.fetchall()
 
@@ -228,6 +228,6 @@ class TestMap:
             df = pd.DataFrame({"a": [5, 3, 2, 1, 2]}).convert_dtypes(dtype_backend="pyarrow")
             return df
 
-        con = duckdb.connect()
-        with pytest.raises(duckdb.InvalidInputException):
+        con = haybarn.connect()
+        with pytest.raises(haybarn.InvalidInputException):
             con.sql("select 42").map(basic_function)

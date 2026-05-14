@@ -2,7 +2,7 @@ import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional, Union, overload
 
-from duckdb import (
+from haybarn import (
     CaseExpression,
     CoalesceOperator,
     ColumnExpression,

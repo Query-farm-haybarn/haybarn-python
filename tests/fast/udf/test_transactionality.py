@@ -1,6 +1,6 @@
 import pytest
 
-import duckdb
+import haybarn
 
 
 class TestUDFTransactionality:
@@ -15,5 +15,5 @@ class TestUDFTransactionality:
 
         duckdb_cursor.create_function("test", my_func)
 
-        with pytest.raises(duckdb.InvalidInputException, match="result closed"):
+        with pytest.raises(haybarn.InvalidInputException, match="result closed"):
             res = rel.fetchone()

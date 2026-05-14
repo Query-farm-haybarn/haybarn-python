@@ -1,6 +1,6 @@
 import pytest
 
-import duckdb
+import haybarn
 
 
 class TestExplain:
@@ -15,7 +15,7 @@ class TestExplain:
         res = duckdb_cursor.sql("select 42").explain("STANDARD")
         assert isinstance(res, str)
 
-        res = duckdb_cursor.sql("select 42").explain(duckdb.ExplainType.STANDARD)
+        res = duckdb_cursor.sql("select 42").explain(haybarn.ExplainType.STANDARD)
         assert isinstance(res, str)
 
         res = duckdb_cursor.sql("select 42").explain(0)
@@ -28,7 +28,7 @@ class TestExplain:
         res = duckdb_cursor.sql("select 42").explain("ANALYZE")
         assert isinstance(res, str)
 
-        res = duckdb_cursor.sql("select 42").explain(duckdb.ExplainType.ANALYZE)
+        res = duckdb_cursor.sql("select 42").explain(haybarn.ExplainType.ANALYZE)
         assert isinstance(res, str)
 
         res = duckdb_cursor.sql("select 42").explain(1)

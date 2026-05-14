@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # Set the library name
-set(DUCKDB_PYTHON_LIB_NAME "_duckdb")
+set(DUCKDB_PYTHON_LIB_NAME "_haybarn")
 
 # Detect CCache
 include(cmake/compiler_launcher.cmake)
@@ -63,7 +63,7 @@ target_include_directories(
 add_subdirectory(src/duckdb_py)
 
 pybind11_add_module(
-  _duckdb
+  _haybarn
   $<TARGET_OBJECTS:python_src>
   $<TARGET_OBJECTS:python_arrow>
   $<TARGET_OBJECTS:python_common>
@@ -78,8 +78,8 @@ pybind11_add_module(
   $<TARGET_OBJECTS:python_relation>
   $<TARGET_OBJECTS:python_type>)
 # add _duckdb_dependencies
-target_link_libraries(_duckdb PRIVATE _duckdb_dependencies)
-duckdb_link_extensions(_duckdb)
+target_link_libraries(_haybarn PRIVATE _duckdb_dependencies)
+duckdb_link_extensions(_haybarn)
 
 # ────────────────────────────────────────────
 # Controlling symbol export
@@ -94,21 +94,21 @@ duckdb_link_extensions(_duckdb)
 # For Windows, we rely on just the visbility annotations.
 # ────────────────────────────────────────────
 set_target_properties(
-  _duckdb
+  _haybarn
   PROPERTIES CXX_VISIBILITY_PRESET hidden
              C_VISIBILITY_PRESET hidden
              VISIBILITY_INLINES_HIDDEN ON)
 
 if(APPLE)
   target_link_options(
-    _duckdb PRIVATE "LINKER:-exported_symbol,_duckdb_adbc_init"
+    _haybarn PRIVATE "LINKER:-exported_symbol,_duckdb_adbc_init"
     "LINKER:-exported_symbol,_PyInit__duckdb")
 elseif(UNIX AND NOT APPLE)
   target_link_options(
-    _duckdb PRIVATE "LINKER:--export-dynamic-symbol=duckdb_adbc_init"
+    _haybarn PRIVATE "LINKER:--export-dynamic-symbol=duckdb_adbc_init"
     "LINKER:--export-dynamic-symbol=PyInit__duckdb")
 elseif(WIN32)
-  target_link_options(_duckdb PRIVATE "/EXPORT:duckdb_adbc_init"
+  target_link_options(_haybarn PRIVATE "/EXPORT:duckdb_adbc_init"
                       "/EXPORT:PyInit__duckdb")
 endif()
 
@@ -131,4 +131,4 @@ else()
   set(_DUCKDB_PY_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
 endif()
 
-install(TARGETS _duckdb LIBRARY DESTINATION "${_DUCKDB_PY_INSTALL_DIR}")
+install(TARGETS _haybarn LIBRARY DESTINATION "${_DUCKDB_PY_INSTALL_DIR}")
