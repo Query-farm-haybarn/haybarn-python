@@ -1,0 +1,48 @@
+haybarn-python
+==============
+
+This repository is the Python client for Haybarn, an independent derived
+distribution of DuckDB, published by Query Farm LLC. It is a fork of the DuckDB
+Python client (github.com/duckdb/duckdb-python).
+
+It is NOT affiliated with, sponsored by, maintained by, or endorsed by the
+DuckDB Foundation or DuckDB Labs.
+
+DuckDB is a trademark of the DuckDB Foundation. The name "DuckDB" is used here
+only descriptively, to identify the upstream project Haybarn is derived from
+("powered by DuckDB").
+
+
+License
+-------
+
+DuckDB and Haybarn are distributed under the MIT License. The upstream license
+is preserved verbatim in the LICENSE file. Modifications made by Haybarn are
+likewise released under the MIT License.
+
+
+Modifications made by Haybarn
+-----------------------------
+
+This is a hard fork of duckdb/duckdb-python, kept as a small curated commit
+stack on top of an upstream release tag (currently v1.5.2):
+
+  * branding: rename package and compiled module to haybarn
+      The distribution and import name is `haybarn`; the package directory is
+      `haybarn/`, the type-stub package is `_haybarn-stubs/`, and the pybind11
+      compiled module is `_haybarn`. The compiled module is renamed so a
+      Haybarn wheel and a genuine `duckdb` wheel can be installed side by side.
+      The public Python API is unchanged.
+
+  * compat: opt-in haybarn.compat shim
+      `import haybarn.compat` registers `haybarn` as `sys.modules['duckdb']` so
+      unmodifiable third-party code that does `import duckdb` resolves to
+      Haybarn. Opt-in by design; it never shadows a genuine `duckdb` install.
+
+  * build/ci: build against the Haybarn DuckDB and publish as `haybarn`.
+
+The authoritative, line-level record of every modification is the git history
+of this fork.
+
+For questions about the DuckDB trademark, contact the DuckDB Foundation at
+quack@duckdb.org. For questions about Haybarn, contact Query Farm LLC.
