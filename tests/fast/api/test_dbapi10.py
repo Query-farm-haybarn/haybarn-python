@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 import pytest
 
-import duckdb
+import haybarn
 
 
 class TestCursorDescription:
@@ -32,12 +32,12 @@ class TestCursorDescription:
         assert isinstance(duckdb_cursor.fetchone()[0], real_type)
 
     def test_description_comparisons(self):
-        duckdb.execute("select 42 a, 'test' b, true c")
-        types = [x[1] for x in duckdb.description()]
+        haybarn.execute("select 42 a, 'test' b, true c")
+        types = [x[1] for x in haybarn.description()]
 
-        STRING = duckdb.STRING
-        NUMBER = duckdb.NUMBER
-        DATETIME = duckdb.DATETIME
+        STRING = haybarn.STRING
+        NUMBER = haybarn.NUMBER
+        DATETIME = haybarn.DATETIME
 
         assert types[1] == STRING
         assert STRING == types[1]  # noqa: SIM300

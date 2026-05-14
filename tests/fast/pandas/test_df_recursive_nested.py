@@ -1,13 +1,13 @@
 import pandas as pd
 
-import duckdb
-from duckdb import Value
+import haybarn
+from haybarn import Value
 
 NULL = None
 
 
 def check_equal(conn, df, reference_query, data):
-    duckdb_conn = duckdb.connect()
+    duckdb_conn = haybarn.connect()
     duckdb_conn.execute(reference_query, parameters=[data])
     res = duckdb_conn.query("SELECT * FROM tbl").fetchall()
     out = conn.sql("SELECT * FROM df").fetchall()

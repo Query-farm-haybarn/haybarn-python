@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from conftest import is_string_dtype
 
-import duckdb
+import haybarn
 
 
 def assert_nullness(items, null_indices):
@@ -18,7 +18,7 @@ def assert_nullness(items, null_indices):
 
 @pytest.mark.skipif(platform.system() == "Emscripten", reason="Pandas interaction is broken in Pyodide 3.11")
 class TestPandasNA:
-    @pytest.mark.parametrize("rows", [100, duckdb.__standard_vector_size__, 5000, 1000000])
+    @pytest.mark.parametrize("rows", [100, haybarn.__standard_vector_size__, 5000, 1000000])
     def test_pandas_string_null(self, duckdb_cursor, rows):
         df = pd.DataFrame(index=np.arange(rows))
         df["string_column"] = pd.Series(dtype="string")

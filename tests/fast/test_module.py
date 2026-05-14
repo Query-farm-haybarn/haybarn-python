@@ -1,12 +1,12 @@
-import duckdb
+import haybarn
 
 
 class TestModule:
     def test_paramstyle(self):
-        assert duckdb.paramstyle == "qmark"
+        assert haybarn.paramstyle == "qmark"
 
     def test_threadsafety(self):
-        assert duckdb.threadsafety == 1
+        assert haybarn.threadsafety == 1
 
     def test_apilevel(self):
-        assert duckdb.apilevel == "2.0"
+        assert haybarn.apilevel == "2.0"

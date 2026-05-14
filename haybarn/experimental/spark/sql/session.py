@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Iterable, Sized
 from typing import TYPE_CHECKING, Any, NoReturn, Union
 
-import duckdb
+import haybarn
 
 if TYPE_CHECKING:
     from pandas.core.frame import DataFrame as PandasDataFrame
@@ -27,14 +27,14 @@ from .udf import UDFRegistration
 # At this level the check is made to determine whether the instance already exists and just needs
 # to be retrieved or it needs to be created.
 
-# For us this is done inside of `duckdb.connect`, based on the passed in path + configuration
+# For us this is done inside of `haybarn.connect`, based on the passed in path + configuration
 # SparkContext can be compared to our Connection class, and SparkConf to our ClientContext class
 
 
 # data is a List of rows
 # every value in each row needs to be turned into a Value
-def _combine_data_and_schema(data: Iterable[Any], schema: StructType) -> list[duckdb.Value]:
-    from duckdb import Value
+def _combine_data_and_schema(data: Iterable[Any], schema: StructType) -> list[haybarn.Value]:
+    from haybarn import Value
 
     new_data = []
     for row in data:
@@ -226,7 +226,7 @@ class SparkSession:  # noqa: D101
     @property
     def catalog(self) -> "Catalog":  # noqa: D102
         if not hasattr(self, "_catalog"):
-            from duckdb.experimental.spark.sql.catalog import Catalog
+            from haybarn.experimental.spark.sql.catalog import Catalog
 
             self._catalog = Catalog(self)
         return self._catalog

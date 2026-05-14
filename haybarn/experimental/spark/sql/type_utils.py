@@ -1,6 +1,6 @@
 from typing import cast
 
-from duckdb.sqltypes import DuckDBPyType
+from haybarn.sqltypes import DuckDBPyType
 
 from ..exception import ContributionsAcceptedError
 from .types import (

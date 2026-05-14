@@ -1,14 +1,14 @@
 import pytest
 
-import duckdb
+import haybarn
 
 
 class TestWithPropagatingExceptions:
     def test_with(self):
-        # Should propagate exception raised in the 'with duckdb.connect() ..'
-        with pytest.raises(duckdb.ParserException, match=r"syntax error at or near *"), duckdb.connect() as con:
+        # Should propagate exception raised in the 'with haybarn.connect() ..'
+        with pytest.raises(haybarn.ParserException, match=r"syntax error at or near *"), haybarn.connect() as con:
             con.execute("invalid")
 
         # Does not raise an exception
-        with duckdb.connect() as con:
+        with haybarn.connect() as con:
             con.execute("select 1")

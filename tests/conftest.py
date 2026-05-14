@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-import duckdb
+import haybarn
 
 try:
     # need to ignore warnings that might be thrown deep inside pandas's import tree (from dateutil in this case)
@@ -77,7 +77,7 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture
 def duckdb_empty_cursor(request):
-    connection = duckdb.connect("")
+    connection = haybarn.connect("")
     cursor = connection.cursor()
     return cursor
 
@@ -128,7 +128,7 @@ def pandas_supports_arrow_backend():
 
 @pytest.fixture
 def require():
-    def _require(extension_name, db_name="") -> duckdb.DuckDBPyConnection | None:
+    def _require(extension_name, db_name="") -> haybarn.DuckDBPyConnection | None:
         # Paths to search for extensions
 
         build = Path(__file__).parent.parent / "build"
@@ -153,7 +153,7 @@ def require():
         for path in extension_paths_found:
             print(path)
             if path.endswith(extension_name + ".duckdb_extension"):
-                conn = duckdb.connect(db_name, config={"allow_unsigned_extensions": "true"})
+                conn = haybarn.connect(db_name, config={"allow_unsigned_extensions": "true"})
                 conn.execute(f"LOAD '{path}'")
                 return conn
         pytest.skip(f"could not load {extension_name}")
@@ -175,7 +175,7 @@ def spark():
 
 @pytest.fixture
 def duckdb_cursor():
-    connection = duckdb.connect("")
+    connection = haybarn.connect("")
     yield connection
     connection.close()
 

@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # Set the library name
-set(DUCKDB_PYTHON_LIB_NAME "_duckdb")
+set(DUCKDB_PYTHON_LIB_NAME "_haybarn")
 
 # Detect CCache
 include(cmake/compiler_launcher.cmake)
@@ -68,7 +68,7 @@ target_compile_definitions(_duckdb_dependencies INTERFACE DUCKDB_STATIC_BUILD)
 add_subdirectory(src/duckdb_py)
 
 pybind11_add_module(
-  _duckdb
+  _haybarn
   $<TARGET_OBJECTS:python_src>
   $<TARGET_OBJECTS:python_arrow>
   $<TARGET_OBJECTS:python_common>
@@ -83,8 +83,8 @@ pybind11_add_module(
   $<TARGET_OBJECTS:python_relation>
   $<TARGET_OBJECTS:python_type>)
 # add _duckdb_dependencies
-target_link_libraries(_duckdb PRIVATE _duckdb_dependencies)
-duckdb_link_extensions(_duckdb)
+target_link_libraries(_haybarn PRIVATE _duckdb_dependencies)
+duckdb_link_extensions(_haybarn)
 
 # ────────────────────────────────────────────
 # Put the object file in the correct place
@@ -105,4 +105,4 @@ else()
   set(_DUCKDB_PY_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
 endif()
 
-install(TARGETS _duckdb LIBRARY DESTINATION "${_DUCKDB_PY_INSTALL_DIR}")
+install(TARGETS _haybarn LIBRARY DESTINATION "${_DUCKDB_PY_INSTALL_DIR}")

@@ -1,5 +1,5 @@
-from duckdb import DuckDBPyConnection
-from duckdb.experimental.spark._globals import _NoValue, _NoValueType
+from haybarn import DuckDBPyConnection
+from haybarn.experimental.spark._globals import _NoValue, _NoValueType
 
 
 class RuntimeConfig:  # noqa: D101

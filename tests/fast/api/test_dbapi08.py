@@ -1,12 +1,12 @@
 # test fetchdf with various types
 import pandas as pd
 
-import duckdb
+import haybarn
 
 
 class TestType:
     def test_fetchdf(self):
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.execute("CREATE TABLE items(item VARCHAR)")
         con.execute("INSERT INTO items VALUES ('jeans'), (''), (NULL)")
         res = con.execute("SELECT item FROM items").fetchdf()

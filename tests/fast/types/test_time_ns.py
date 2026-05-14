@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from duckdb import ConversionException, sqltypes
+from haybarn import ConversionException, sqltypes
 
 
 def test_time_ns_select(duckdb_cursor):

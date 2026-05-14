@@ -2,7 +2,7 @@ import platform
 
 import pytest
 
-_ = pytest.importorskip("duckdb.experimental.spark")
+_ = pytest.importorskip("haybarn.experimental.spark")
 
 from spark_namespace.sql.functions import col
 from spark_namespace.sql.types import Row

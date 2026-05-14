@@ -43,7 +43,7 @@ if typing.TYPE_CHECKING:
         ArrowUDF,
     )
     from ._enums import ExplainTypeLiteral, RenderModeLiteral
-    from duckdb import sqltypes, func
+    from haybarn import sqltypes, func
 
 __all__: lst[str] = [
     "BinderException",

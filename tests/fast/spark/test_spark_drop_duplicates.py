@@ -3,7 +3,7 @@ from spark_namespace.sql.types import (
     Row,
 )
 
-_ = pytest.importorskip("duckdb.experimental.spark")
+_ = pytest.importorskip("haybarn.experimental.spark")
 
 
 class TestDataFrameDropDuplicates:

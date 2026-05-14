@@ -5,11 +5,14 @@
 ######################################################################################################
 
 [project]
-name = "duckdb"
+# Haybarn: the Python client for Haybarn, an independent derived distribution
+# of DuckDB. Package and import name are both `haybarn`. Not affiliated with or
+# endorsed by the DuckDB Foundation.
+name = "haybarn"
 dynamic = ["version"]
-description = "DuckDB in-process database"
+description = "Haybarn in-process database, powered by DuckDB"
 readme = "README.md"
-keywords = ["DuckDB", "Database", "SQL", "OLAP"]
+keywords = ["Haybarn", "DuckDB", "Database", "SQL", "OLAP"]
 requires-python = ">=3.10.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -32,20 +35,19 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: C++",
 ]
-authors = [{name = "DuckDB Foundation"}]
-maintainers = [{name = "DuckDB Foundation"}]
+authors = [{name = "Query Farm LLC"}]
+maintainers = [{name = "Query Farm LLC"}]
 
 [project.urls]
-Documentation = "https://duckdb.org/docs/stable/clients/python/overview"
-Source = "https://github.com/duckdb/duckdb-python"
-Issues = "https://github.com/duckdb/duckdb-python/issues"
-Changelog = "https://github.com/duckdb/duckdb-python/releases"
+Source = "https://github.com/Query-farm-haybarn/haybarn-python"
+Issues = "https://github.com/Query-farm-haybarn/haybarn-python/issues"
+Changelog = "https://github.com/Query-farm-haybarn/haybarn-python/releases"
 
 [project.optional-dependencies]
-all = [ # users can install duckdb with 'duckdb[all]', which will install this list
-    "ipython", # used in duckdb.query_graph
-    "fsspec",  # used in duckdb.filesystem
-    "numpy",   # used in duckdb.experimental.spark and in duckdb.fetchnumpy()
+all = [ # users can install haybarn with 'haybarn[all]', which will install this list
+    "ipython", # used in haybarn.query_graph
+    "fsspec",  # used in haybarn.filesystem
+    "numpy",   # used in haybarn.experimental.spark and in haybarn.fetchnumpy()
     "pandas",  # used for pandas dataframes all over the place
     "pyarrow", # used for pyarrow support
     "adbc-driver-manager", # for the adbc driver
@@ -76,9 +78,9 @@ metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 
 [tool.scikit-build.wheel]
 cmake = true
-packages.duckdb = "duckdb"
+packages.haybarn = "haybarn"
 packages.adbc_driver_duckdb = "adbc_driver_duckdb"
-packages._duckdb-stubs = "_duckdb-stubs"
+packages._haybarn-stubs = "_haybarn-stubs"
 
 [tool.scikit-build.cmake.define]
 BUILD_EXTENSIONS = "core_functions;json;parquet;icu"
@@ -138,10 +140,10 @@ include = [
 
     # Source code and stubs
     "src/**",
-    "duckdb/**",
+    "haybarn/**",
     "duckdb_packaging/**",
     "adbc_driver_duckdb/**",
-    "_duckdb-stubs/*.pyi",
+    "_haybarn-stubs/*.pyi",
 
     # Generated during sdist build, contains git describe string for duckdb
     "duckdb_packaging/duckdb_version.txt",
@@ -328,19 +330,19 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-packages = ["duckdb", "_duckdb"]
+packages = ["haybarn", "_haybarn"]
 strict = true
 warn_unreachable = true
 pretty = true
 python_version = "3.10"
 exclude = [
-    "duckdb/experimental/", # not checking the pyspark API
-    "duckdb/query_graph/",  # old and unmaintained (should probably remove)
+    "haybarn/experimental/", # not checking the pyspark API
+    "haybarn/query_graph/",  # old and unmaintained (should probably remove)
     "tests", "scripts",
 ]
 
 [[tool.mypy.overrides]]
-module = "duckdb.experimental.*"
+module = "haybarn.experimental.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
@@ -355,12 +357,12 @@ module = [
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "duckdb.filesystem"
+module = "haybarn.filesystem"
 disallow_subclassing_any = false
 
 [tool.coverage.run]
 branch = true
-source = ["duckdb"]
+source = ["haybarn"]
 
 [tool.ruff]
 line-length = 120
@@ -413,7 +415,7 @@ ban-relative-imports = "all"
 strict = true
 
 [tool.ruff.lint.per-file-ignores]
-"duckdb/experimental/spark/**.py" = [
+"haybarn/experimental/spark/**.py" = [
     # No need for moduledocstrings for spark
     'D100',
     # Ignore boolean positional args in the Spark API

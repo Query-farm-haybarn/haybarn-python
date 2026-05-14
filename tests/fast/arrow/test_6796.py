@@ -1,13 +1,13 @@
 import pandas as pd
 import pytest
 
-import duckdb
+import haybarn
 
 pyarrow = pytest.importorskip("pyarrow")
 
 
 def test_6796():
-    conn = duckdb.connect()
+    conn = haybarn.connect()
     input_df = pd.DataFrame({"foo": ["bar"]})
     conn.register("input_df", input_df)
 
