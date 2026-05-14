@@ -2,7 +2,7 @@ import datetime
 
 import pandas as pd
 
-import duckdb
+import haybarn
 
 
 def run_checks(df):
@@ -12,7 +12,7 @@ def run_checks(df):
 
 
 def test_date_as_datetime():
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute("create table t (d date)")
     con.execute("insert into t values ('1992-07-30'), (NULL)")
 

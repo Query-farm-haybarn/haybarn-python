@@ -7,7 +7,7 @@ from datetime import timedelta
 import numpy as np
 import pytest
 
-import duckdb
+import haybarn
 
 
 class TestScanNumpy:
@@ -83,29 +83,29 @@ class TestScanNumpy:
         res = duckdb_cursor.sql("select * from z").fetchall()
         assert res == [(1, "z"), (2, "x"), (3, "c")]
 
-        # currently unsupported formats, will throw duckdb.InvalidInputException
+        # currently unsupported formats, will throw haybarn.InvalidInputException
 
         # list of arrays with different length
         z = [np.array([1, 2]), np.array([3])]
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             duckdb_cursor.sql("select * from z")
 
         # dict of ndarrays of different length
         z = {"z": np.array([1, 2]), "x": np.array([3])}
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             duckdb_cursor.sql("select * from z")
 
         # high dimensional tensors
         z = np.array([[[1, 2]]])
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             duckdb_cursor.sql("select * from z")
 
         # list of ndarrys with len(shape) > 1
         z = [np.array([[1, 2], [3, 4]])]
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             duckdb_cursor.sql("select * from z")
 
         # dict of ndarrays with len(shape) > 1
         z = {"x": np.array([[1, 2], [3, 4]])}
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             duckdb_cursor.sql("select * from z")

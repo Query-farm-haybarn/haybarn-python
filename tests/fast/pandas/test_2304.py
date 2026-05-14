@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-import duckdb
+import haybarn
 
 
 class TestPandasMergeSameName:
@@ -25,7 +25,7 @@ class TestPandasMergeSameName:
             }
         )
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register("df1", df1)
         con.register("df2", df2)
         query = """SELECT * from df1
@@ -74,7 +74,7 @@ class TestPandasMergeSameName:
             }
         )
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register("df1", df1)
         con.register("df2", df2)
         query = """SELECT * from df1
@@ -104,7 +104,7 @@ class TestPandasMergeSameName:
             }
         )
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register("df1", df1)
         con.register("df2", df2)
 

@@ -1,13 +1,13 @@
 import pandas as pd
 
-import duckdb
+import haybarn
 
 
 class TestInsert:
     def test_insert(self):
         test_df = pd.DataFrame({"i": [1, 2, 3], "j": ["one", "two", "three"]})
         # connect to an in-memory temporary database
-        conn = duckdb.connect()
+        conn = haybarn.connect()
         # get a cursor
         cursor = conn.cursor()
         conn.execute("CREATE TABLE test (i INTEGER, j STRING)")

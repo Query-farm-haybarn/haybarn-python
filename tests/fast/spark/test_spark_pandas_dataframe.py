@@ -1,6 +1,6 @@
 import pytest
 
-_ = pytest.importorskip("duckdb.experimental.spark")
+_ = pytest.importorskip("haybarn.experimental.spark")
 pd = pytest.importorskip("pandas")
 
 from pandas.testing import assert_frame_equal

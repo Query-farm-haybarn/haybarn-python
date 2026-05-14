@@ -1,11 +1,11 @@
 import pandas as pd
 
-import duckdb
+import haybarn
 
 
 class TestCaseAlias:
     def test_case_alias(self, duckdb_cursor):
-        con = duckdb.connect(":memory:")
+        con = haybarn.connect(":memory:")
 
         df = pd.DataFrame([{"COL1": "val1", "CoL2": 1.05}, {"COL1": "val3", "CoL2": 17}])
 

@@ -5,7 +5,7 @@ import webbrowser
 from functools import reduce
 from pathlib import Path
 
-from duckdb import DuckDBPyConnection
+from haybarn import DuckDBPyConnection
 
 qgraph_css = """
 :root {

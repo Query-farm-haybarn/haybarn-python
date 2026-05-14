@@ -10,8 +10,8 @@ from typing import (
     overload,
 )
 
-import duckdb
-from duckdb import ColumnExpression, Expression, StarExpression
+import haybarn
+from haybarn import ColumnExpression, Expression, StarExpression
 
 from ..errors import PySparkIndexError, PySparkTypeError, PySparkValueError
 from .column import Column
@@ -27,11 +27,11 @@ if TYPE_CHECKING:
     from .group import GroupedData
     from .session import SparkSession
 
-from duckdb.experimental.spark.sql import functions as spark_sql_functions
+from haybarn.experimental.spark.sql import functions as spark_sql_functions
 
 
 class DataFrame:  # noqa: D101
-    def __init__(self, relation: duckdb.DuckDBPyRelation, session: "SparkSession") -> None:  # noqa: D107
+    def __init__(self, relation: haybarn.DuckDBPyRelation, session: "SparkSession") -> None:  # noqa: D107
         self.relation = relation
         self.session = session
         self._schema = None
@@ -859,7 +859,7 @@ class DataFrame:  # noqa: D101
 
     @property
     def schema(self) -> StructType:
-        """Returns the schema of this :class:`DataFrame` as a :class:`duckdb.experimental.spark.sql.types.StructType`.
+        """Returns the schema of this :class:`DataFrame` as a :class:`haybarn.experimental.spark.sql.types.StructType`.
 
         Examples:
         --------
@@ -890,7 +890,7 @@ class DataFrame:  # noqa: D101
         [Row(age=5, name='Bob')]
         """
         if isinstance(item, str):
-            return Column(duckdb.ColumnExpression(self.relation.alias, item))
+            return Column(haybarn.ColumnExpression(self.relation.alias, item))
         elif isinstance(item, Column):
             return self.filter(item)
         elif isinstance(item, (list, tuple)):
@@ -912,7 +912,7 @@ class DataFrame:  # noqa: D101
         if name not in self.relation.columns:
             msg = f"'{self.__class__.__name__}' object has no attribute '{name}'"
             raise AttributeError(msg)
-        return Column(duckdb.ColumnExpression(self.relation.alias, name))
+        return Column(haybarn.ColumnExpression(self.relation.alias, name))
 
     @overload
     def groupBy(self, *cols: "ColumnOrName") -> "GroupedData": ...

@@ -42,7 +42,7 @@ INIT_PY_END = "# END OF CONNECTION WRAPPER"
 wrapper_methods = json.loads(Path(WRAPPER_JSON_PATH).read_text())
 
 # On DuckDBPyConnection these are read_only_properties, they're basically functions without requiring () to invoke
-# that's not possible on 'duckdb' so it becomes a function call with no arguments (i.e duckdb.description())
+# that's not possible on 'duckdb' so it becomes a function call with no arguments (i.e haybarn.description())
 READONLY_PROPERTY_NAMES = ["description", "rowcount"]
 
 # These methods are not directly DuckDBPyConnection methods,

@@ -1,6 +1,6 @@
 import pytest
 
-import duckdb
+import haybarn
 
 pytest.importorskip("pyarrow")
 
@@ -15,7 +15,7 @@ class Test2426:
         if not can_run:
             return
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.execute("Create Table test (a integer)")
 
         for i in range(1024):

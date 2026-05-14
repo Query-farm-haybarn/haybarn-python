@@ -38,7 +38,7 @@ from typing_extensions import Self
 # Disallow reloading this module so as to preserve the identities of the
 # classes defined here.
 if "_is_loaded" in globals():
-    msg = "Reloading duckdb.experimental.spark._globals is not allowed"
+    msg = "Reloading haybarn.experimental.spark._globals is not allowed"
     raise RuntimeError(msg)
 _is_loaded = True
 

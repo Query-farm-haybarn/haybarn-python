@@ -1,6 +1,6 @@
 import pandas as pd
 
-import duckdb
+import haybarn
 
 try:
     import pyarrow as pa
@@ -17,7 +17,7 @@ class Test3654:
                 "id": [1, 1, 2],
             }
         )
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register("df1", df1)
         rel = con.view("df1")
         print(rel.execute().fetchall())
@@ -33,7 +33,7 @@ class Test3654:
             }
         )
         table = pa.Table.from_pandas(df1)
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register("df1", table)
         rel = con.view("df1")
         print(rel.execute().fetchall())

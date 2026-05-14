@@ -1,12 +1,12 @@
-import duckdb
-from duckdb import DuckDBPyConnection
-from duckdb.experimental.spark.conf import SparkConf
-from duckdb.experimental.spark.exception import ContributionsAcceptedError
+import haybarn
+from haybarn import DuckDBPyConnection
+from haybarn.experimental.spark.conf import SparkConf
+from haybarn.experimental.spark.exception import ContributionsAcceptedError
 
 
 class SparkContext:  # noqa: D101
     def __init__(self, master: str) -> None:  # noqa: D107
-        self._connection = duckdb.connect(":memory:")
+        self._connection = haybarn.connect(":memory:")
         # This aligns the null ordering with Spark.
         self._connection.execute("set default_null_order='nulls_first_on_asc_last_on_desc'")
 
@@ -70,10 +70,10 @@ class SparkContext:  # noqa: D101
         raise ContributionsAcceptedError
 
     # def binaryFiles(self, path: str, minPartitions: Optional[int] = None
-    #     ) -> duckdb.experimental.spark.rdd.RDD[typing.Tuple[str, bytes]]:
+    #     ) -> haybarn.experimental.spark.rdd.RDD[typing.Tuple[str, bytes]]:
     # 	pass
 
-    # def binaryRecords(self, path: str, recordLength: int) -> duckdb.experimental.spark.rdd.RDD[bytes]:
+    # def binaryRecords(self, path: str, recordLength: int) -> haybarn.experimental.spark.rdd.RDD[bytes]:
     # 	pass
 
     # def broadcast(self, value: ~T) -> 'Broadcast[T]':
@@ -88,7 +88,7 @@ class SparkContext:  # noqa: D101
     def dump_profiles(self, path: str) -> None:  # noqa: D102
         raise ContributionsAcceptedError
 
-    # def emptyRDD(self) -> duckdb.experimental.spark.rdd.RDD[typing.Any]:
+    # def emptyRDD(self) -> haybarn.experimental.spark.rdd.RDD[typing.Any]:
     # 	pass
 
     def getCheckpointDir(self) -> str | None:  # noqa: D102
@@ -160,7 +160,7 @@ class SparkContext:  # noqa: D101
     def sparkUser(self) -> str:  # noqa: D102
         raise ContributionsAcceptedError
 
-    # def statusTracker(self) -> duckdb.experimental.spark.status.StatusTracker:
+    # def statusTracker(self) -> haybarn.experimental.spark.status.StatusTracker:
     # 	raise ContributionsAcceptedError
 
     # def textFile(self, name: str, minPartitions: Optional[int] = None, use_unicode: bool = True
