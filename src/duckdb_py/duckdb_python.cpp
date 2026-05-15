@@ -44,7 +44,7 @@ enum PySQLTokenType : uint8_t {
 static py::list PyTokenize(const string &query) {
 	auto tokens = Parser::Tokenize(query);
 	py::list result;
-	for (auto &token : tokens) {
+	for (auto &&token : tokens) {
 		auto tuple = py::tuple(2);
 		tuple[0] = token.start;
 		switch (token.type) {
