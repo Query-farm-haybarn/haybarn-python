@@ -1059,7 +1059,7 @@ static void RegisterExpectedResultType(py::handle &m) {
 //
 // Right now we export two symbols only:
 // - duckdb_adbc_init: the entrypoint for our ADBC driver
-// - PyInit__duckdb: the entrypoint for the python extension
+// - PyInit__haybarn: the entrypoint for the python extension
 //
 // All symbols that need exporting must be added to both the list below
 // AND to CMakeLists.txt.

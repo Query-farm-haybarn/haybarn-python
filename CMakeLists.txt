@@ -84,8 +84,9 @@ duckdb_link_extensions(_haybarn)
 # ────────────────────────────────────────────
 # Controlling symbol export
 #
-# We want to export exactly two symbols: - PyInit__duckdb: this allows CPython
-# to load the module - duckdb_adbc_init: the DuckDB ADBC driver
+# We want to export exactly two symbols: - PyInit__haybarn: this allows CPython
+# to load the module (pybind11 generates this from PYBIND11_MODULE(_haybarn,…))
+# - duckdb_adbc_init: the DuckDB ADBC driver entry point (name kept).
 #
 # The export of symbols on OSX and Linux is controlled by: - Visibility
 # annotations in the code (for this lib we use the PYBIND11_EXPORT macro) -
@@ -102,14 +103,14 @@ set_target_properties(
 if(APPLE)
   target_link_options(
     _haybarn PRIVATE "LINKER:-exported_symbol,_duckdb_adbc_init"
-    "LINKER:-exported_symbol,_PyInit__duckdb")
+    "LINKER:-exported_symbol,_PyInit__haybarn")
 elseif(UNIX AND NOT APPLE)
   target_link_options(
     _haybarn PRIVATE "LINKER:--export-dynamic-symbol=duckdb_adbc_init"
-    "LINKER:--export-dynamic-symbol=PyInit__duckdb")
+    "LINKER:--export-dynamic-symbol=PyInit__haybarn")
 elseif(WIN32)
   target_link_options(_haybarn PRIVATE "/EXPORT:duckdb_adbc_init"
-                      "/EXPORT:PyInit__duckdb")
+                      "/EXPORT:PyInit__haybarn")
 endif()
 
 # ────────────────────────────────────────────
