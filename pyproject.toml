@@ -462,6 +462,11 @@ build-frontend = "build[uv]"
 # (manylinux_i686 on Linux x86_64 runners, x86 on Windows) which we don't ship
 # and which currently fails image resolution against our pinned manylinux tag.
 archs = "auto64"
+# Haybarn: match `requires-python = ">=3.10.0"` (cibuildwheel doesn't read that
+# field; without an explicit `build` it tries every cpython it knows). The
+# rolled-forward manylinux base no longer ships cp38/cp39 (both EOL), and
+# pybind11 + DuckDB only support 3.10+ anyway.
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 # Haybarn: pin manylinux + musllinux images to a dated tag so builds are
 # reproducible. An explicit tag requires the full image reference (cibuildwheel
 # only resolves the bare alias when no tag is given). Roll forward
