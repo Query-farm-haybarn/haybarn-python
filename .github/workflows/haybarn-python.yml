@@ -65,8 +65,14 @@ jobs:
       # The wheel matrix (CIBW_*) is configured in pyproject.toml
       # [tool.cibuildwheel]. Platform-specific CIBW_ENVIRONMENT overrides the
       # generic one, so OVERRIDE_GIT_DESCRIBE is repeated where set.
+      #
+      # cibuildwheel @v3 dropped support for cp38 entirely (EOL Oct 2024) and
+      # changed host-environment introspection from a hardcoded
+      # `/opt/python/cp38-cp38/bin/python` to the runner's own Python. The
+      # rolled-forward manylinux_2_28:2026.05.13-1 image no longer ships cp38,
+      # so @v2.21's hardcoded path exits 127 before the wheel build starts.
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21
+        uses: pypa/cibuildwheel@v3
         env:
           CIBW_ENVIRONMENT: 'OVERRIDE_GIT_DESCRIBE=v1.5.2'
           CIBW_ENVIRONMENT_LINUX: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=/project/.ccache'
