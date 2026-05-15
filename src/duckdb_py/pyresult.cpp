@@ -242,7 +242,7 @@ py::dict DuckDBPyResult::FetchNumpyInternal(bool stream, idx_t vectors_per_chunk
 
 	if (result->type == QueryResultType::MATERIALIZED_RESULT) {
 		auto &materialized = result->Cast<MaterializedQueryResult>();
-		for (auto &chunk : materialized.Collection().Chunks()) {
+		for (auto &&chunk : materialized.Collection().Chunks()) {
 			conversion.Append(chunk);
 		}
 		InsertCategory(materialized, categories);
@@ -399,7 +399,7 @@ PandasDataFrame DuckDBPyResult::FetchDFChunk(idx_t num_of_vectors, bool date_as_
 py::dict DuckDBPyResult::FetchPyTorch() {
 	auto result_dict = FetchNumpyInternal();
 	auto from_numpy = py::module::import("torch").attr("from_numpy");
-	for (auto &item : result_dict) {
+	for (auto &&item : result_dict) {
 		result_dict[item.first] = from_numpy(item.second);
 	}
 	return result_dict;
@@ -408,7 +408,7 @@ py::dict DuckDBPyResult::FetchPyTorch() {
 py::dict DuckDBPyResult::FetchTF() {
 	auto result_dict = FetchNumpyInternal();
 	auto convert_to_tensor = py::module::import("tensorflow").attr("convert_to_tensor");
-	for (auto &item : result_dict) {
+	for (auto &&item : result_dict) {
 		result_dict[item.first] = convert_to_tensor(item.second);
 	}
 	return result_dict;
@@ -432,7 +432,7 @@ duckdb::pyarrow::Table DuckDBPyResult::FetchArrowTable(idx_t rows_per_batch, boo
 	if (result->type == QueryResultType::ARROW_RESULT) {
 		auto &arrow_result = result->Cast<ArrowQueryResult>();
 		auto arrays = arrow_result.ConsumeArrays();
-		for (auto &array : arrays) {
+		for (auto &&array : arrays) {
 			ArrowSchema arrow_schema;
 			auto result_names = arrow_result.names;
 			if (to_polars) {

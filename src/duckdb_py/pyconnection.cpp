@@ -361,7 +361,7 @@ py::list DuckDBPyConnection::ListFilesystems() {
 	auto &database = con.GetDatabase();
 	auto subsystems = database.GetFileSystem().ListSubSystems();
 	py::list names;
-	for (auto &name : subsystems) {
+	for (auto &&name : subsystems) {
 		names.append(py::str(name));
 	}
 	return names;
@@ -406,7 +406,7 @@ py::list DuckDBPyConnection::ExtractStatements(const string &query) {
 	py::list result;
 	auto &connection = con.GetConnection();
 	auto statements = connection.ExtractStatements(query);
-	for (auto &statement : statements) {
+	for (auto &&statement : statements) {
 		result.append(make_uniq<DuckDBPyStatement>(std::move(statement)));
 	}
 	return result;
@@ -521,7 +521,7 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::ExecuteMany(const py::object 
 
 	unique_ptr<QueryResult> query_result;
 	// Execute once for every set of parameters that are provided
-	for (auto &parameters : outer_list) {
+	for (auto &&parameters : outer_list) {
 		auto params = py::reinterpret_borrow<py::object>(parameters);
 		query_result = ExecuteInternal(*prep, std::move(params));
 	}
@@ -560,7 +560,7 @@ unique_ptr<QueryResult> DuckDBPyConnection::CompletePendingQuery(PendingQueryRes
 py::list TransformNamedParameters(const case_insensitive_map_t<idx_t> &named_param_map, const py::dict &params) {
 	py::list new_params(params.size());
 
-	for (auto &item : params) {
+	for (auto &&item : params) {
 		const std::string &item_name = item.first.cast<std::string>();
 		auto entry = named_param_map.find(item_name);
 		if (entry == named_param_map.end()) {
@@ -577,7 +577,7 @@ py::list TransformNamedParameters(const case_insensitive_map_t<idx_t> &named_par
 		// One or more named parameters were expected, but not found
 		vector<string> missing_params;
 		missing_params.reserve(named_param_map.size());
-		for (auto &entry : named_param_map) {
+		for (auto &&entry : named_param_map) {
 			auto &name = entry.first;
 			if (!params.contains(name)) {
 				missing_params.push_back(name);
@@ -742,7 +742,7 @@ shared_ptr<DuckDBPyConnection> DuckDBPyConnection::Append(const string &name, co
 	if (by_name) {
 		auto df_columns = value.attr("columns");
 		vector<string> column_names;
-		for (auto &column : df_columns) {
+		for (auto &&column : df_columns) {
 			column_names.push_back(std::string(py::str(column)));
 		}
 		columns += "(";
@@ -841,7 +841,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadJSON(
 		py::dict columns_dict = columns;
 		child_list_t<Value> struct_fields;
 
-		for (auto &kv : columns_dict) {
+		for (auto &&kv : columns_dict) {
 			auto &column_name = kv.first;
 			auto &type = kv.second;
 			if (!py::isinstance<py::str>(column_name)) {
@@ -1053,7 +1053,7 @@ static void AcceptableCSVOptions(const string &unkown_parameter) {
 	error << "Possible arguments as suggestions: " << '\n';
 	vector<string> parameters(valid_parameters.begin(), valid_parameters.end());
 	auto suggestions = StringUtil::TopNJaroWinkler(parameters, unkown_parameter, 3);
-	for (auto &suggestion : suggestions) {
+	for (auto &&suggestion : suggestions) {
 		error << "* " << suggestion << '\n';
 	}
 	throw InvalidInputException(error.str());
@@ -1122,7 +1122,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadCSV(const py::object &name_
 	py::object comment = py::none();
 	py::object thousands_separator = py::none();
 
-	for (auto &arg : kwargs) {
+	for (auto &&arg : kwargs) {
 		const auto &arg_name = py::str(arg.first).cast<std::string>();
 		if (arg_name == "header") {
 			header = kwargs[arg_name.c_str()];
@@ -1236,7 +1236,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadCSV(const py::object &name_
 		if (py::is_dict_like(dtype)) {
 			child_list_t<Value> struct_fields;
 			py::dict dtype_dict = dtype;
-			for (auto &kv : dtype_dict) {
+			for (auto &&kv : dtype_dict) {
 				shared_ptr<DuckDBPyType> sql_type;
 				if (!py::try_cast(kv.second, sql_type)) {
 					struct_fields.emplace_back(py::str(kv.first), py::str(kv.second));
@@ -1249,7 +1249,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadCSV(const py::object &name_
 		} else if (py::is_list_like(dtype)) {
 			vector<Value> list_values;
 			py::list dtype_list = dtype;
-			for (auto &child : dtype_list) {
+			for (auto &&child : dtype_list) {
 				shared_ptr<DuckDBPyType> sql_type;
 				if (!py::try_cast(child, sql_type)) {
 					list_values.push_back(Value(py::str(child)));
@@ -1287,7 +1287,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadCSV(const py::object &name_
 		}
 		vector<Value> names;
 		py::list names_list = names_p;
-		for (auto &elem : names_list) {
+		for (auto &&elem : names_list) {
 			if (!py::isinstance<py::str>(elem)) {
 				throw InvalidInputException("read_csv 'names' list has to consist of only strings");
 			}
@@ -1304,7 +1304,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadCSV(const py::object &name_
 			null_values.push_back(Value(py::str(na_values)));
 		} else {
 			py::list null_list = na_values;
-			for (auto &elem : null_list) {
+			for (auto &&elem : null_list) {
 				if (!py::isinstance<py::str>(elem)) {
 					throw InvalidInputException("read_csv 'na_values' list has to consist of only strings");
 				}
@@ -1542,7 +1542,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadCSV(const py::object &name_
 		py::dict columns_dict = columns;
 		child_list_t<Value> struct_fields;
 
-		for (auto &kv : columns_dict) {
+		for (auto &&kv : columns_dict) {
 			auto &column_name = kv.first;
 			auto &type = kv.second;
 			if (!py::isinstance<py::str>(column_name)) {
@@ -1579,7 +1579,7 @@ void DuckDBPyConnection::ExecuteImmediately(vector<unique_ptr<SQLStatement>> sta
 	if (statements.empty()) {
 		return;
 	}
-	for (auto &stmt : statements) {
+	for (auto &&stmt : statements) {
 		if (!stmt->named_param_map.empty()) {
 			throw NotImplementedException(
 			    "Prepared parameters are only supported for the last statement, please split your query up into "
@@ -1981,7 +1981,7 @@ void DuckDBPyConnection::Cursors::AddCursor(shared_ptr<DuckDBPyConnection> conn)
 	// Clean up previously created cursors
 	vector<weak_ptr<DuckDBPyConnection>> compacted_cursors;
 	bool needs_compaction = false;
-	for (auto &cur_p : cursors) {
+	for (auto &&cur_p : cursors) {
 		auto cur = cur_p.lock();
 		if (!cur) {
 			needs_compaction = true;
@@ -1999,7 +1999,7 @@ void DuckDBPyConnection::Cursors::AddCursor(shared_ptr<DuckDBPyConnection> conn)
 void DuckDBPyConnection::Cursors::ClearCursors() {
 	lock_guard<mutex> l(lock);
 
-	for (auto &cur : cursors) {
+	for (auto &&cur : cursors) {
 		auto cursor = cur.lock();
 		if (!cursor) {
 			// The cursor has already been closed
@@ -2115,7 +2115,7 @@ duckdb::pyarrow::RecordBatchReader DuckDBPyConnection::FetchRecordBatchReader(co
 
 case_insensitive_map_t<Value> TransformPyConfigDict(const py::dict &py_config_dict) {
 	case_insensitive_map_t<Value> config_dict;
-	for (auto &kv : py_config_dict) {
+	for (auto &&kv : py_config_dict) {
 		auto key = py::str(kv.first);
 		auto val = py::str(kv.second);
 		config_dict[key] = Value(val);

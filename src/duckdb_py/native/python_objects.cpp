@@ -638,7 +638,7 @@ py::object PythonObject::FromValue(const Value &val, const LogicalType &type,
 		auto &list_values = ListValue::GetChildren(val);
 
 		py::list list;
-		for (auto &list_elem : list_values) {
+		for (auto &&list_elem : list_values) {
 			list.append(FromValue(list_elem, ListType::GetChildType(type), client_properties));
 		}
 		return std::move(list);
@@ -670,7 +670,7 @@ py::object PythonObject::FromValue(const Value &val, const LogicalType &type,
 
 		py::dict py_struct;
 		if (KeyIsHashable(key_type)) {
-			for (auto &list_elem : list_values) {
+			for (auto &&list_elem : list_values) {
 				auto &struct_children = StructValue::GetChildren(list_elem);
 				auto key = PythonObject::FromValue(struct_children[0], key_type, client_properties);
 				auto value = PythonObject::FromValue(struct_children[1], val_type, client_properties);
@@ -679,7 +679,7 @@ py::object PythonObject::FromValue(const Value &val, const LogicalType &type,
 		} else {
 			py::list keys;
 			py::list values;
-			for (auto &list_elem : list_values) {
+			for (auto &&list_elem : list_values) {
 				auto &struct_children = StructValue::GetChildren(list_elem);
 				keys.append(PythonObject::FromValue(struct_children[0], key_type, client_properties));
 				values.append(PythonObject::FromValue(struct_children[1], val_type, client_properties));

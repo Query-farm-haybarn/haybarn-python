@@ -443,7 +443,7 @@ public:
 			}
 		}
 		idx_t i = 0;
-		for (auto &param : params) {
+		for (auto &&param : params) {
 			auto type = py::cast<shared_ptr<DuckDBPyType>>(param);
 			parameters[i++] = type->Type();
 		}
@@ -475,7 +475,7 @@ public:
 		param_count = py::len(sig_params);
 		parameters.reserve(param_count);
 		auto params = py::dict(sig_params);
-		for (auto &item : params) {
+		for (auto &&item : params) {
 			auto &value = item.second;
 			shared_ptr<DuckDBPyType> pytype;
 			if (py::try_cast<shared_ptr<DuckDBPyType>>(value.attr("annotation"), pytype)) {
