@@ -480,20 +480,47 @@ musllinux-x86_64-image       = "quay.io/pypa/musllinux_1_2_x86_64:2026.05.13-1"
 musllinux-aarch64-image      = "quay.io/pypa/musllinux_1_2_aarch64:2026.05.13-1"
 
 [tool.cibuildwheel.linux]
-# ccache lives in EPEL, not the manylinux_2_28 base repos. Install both so
-# the cache step that follows actually has something to cache; the previous
-# `|| true` silently masked the failure and left every Linux build cold.
-before-build = ["yum install -y epel-release", "yum install -y ccache"]
+# Install ccache 4.13.6 from the upstream GitHub release (musl-static variant,
+# fully statically linked → runs on any Linux libc). EPEL 8's `yum install -y
+# ccache` resolves to 3.7.7 which predates the HTTP storage backend (added in
+# 4.7), so CCACHE_REMOTE_STORAGE would be silently dropped. The musl-static
+# binary works on both glibc-based manylinux and apk-based musllinux, so the
+# *-musllinux override below is mostly the package-manager swap for the
+# tar/xz prerequisites.
+#
+# Trailing `ccache -s` prints stats output for visibility (cibuildwheel
+# doesn't have a native after-build hook).
+before-build = [
+  "yum install -y curl tar xz",
+  "curl -fsSL https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-$(uname -m)-musl-static.tar.xz -o /tmp/ccache.tar.xz",
+  "tar -xJf /tmp/ccache.tar.xz -C /tmp",
+  "install -m 0755 /tmp/ccache-4.13.6-linux-$(uname -m)-musl-static/ccache /usr/local/bin/ccache",
+  "ccache --version",
+  "ccache -s || true",
+]
 
-# musllinux containers are Alpine, which has apk (not yum). cibuildwheel's
-# `select` patterns let us scope a different before-build to just the *-musllinux*
-# wheels so the host package install matches the host package manager.
+# musllinux containers are Alpine (apk, not yum) — same ccache binary,
+# different package manager for the tar/xz prereqs.
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
-before-build = "apk add --no-cache ccache"
+before-build = [
+  "apk add --no-cache curl tar xz",
+  "curl -fsSL https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-$(uname -m)-musl-static.tar.xz -o /tmp/ccache.tar.xz",
+  "tar -xJf /tmp/ccache.tar.xz -C /tmp",
+  "install -m 0755 /tmp/ccache-4.13.6-linux-$(uname -m)-musl-static/ccache /usr/local/bin/ccache",
+  "ccache --version",
+  "ccache -s || true",
+]
 
 [tool.cibuildwheel.macos]
-before-build = ["brew install ccache"]
+# brew ships a recent ccache (4.13+) — its HTTP backend already works.
+# The trailing stats dump is for log visibility.
+before-build = ["brew install ccache", "ccache -s || true"]
 
 [tool.cibuildwheel.windows]
+# Windows wheel builds use MSVC (cl.exe). ccache doesn't intercept cl.exe
+# without the masquerade-wrapper trick; the install runs but the build
+# doesn't actually go through ccache. Leaving the install in for now so
+# `ccache --version` works inside before-build hooks; the actual ccache
+# integration on Windows is a separate effort.
 before-build = ["choco install ccache"]
