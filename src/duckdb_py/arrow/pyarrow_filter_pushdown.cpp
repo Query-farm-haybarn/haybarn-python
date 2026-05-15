@@ -163,7 +163,7 @@ py::object GetScalar(Value &constant, const string &timezone_config, const Arrow
 static py::list TransformInList(const InFilter &in) {
 	py::list res;
 	ClientProperties default_properties;
-	for (auto &val : in.values) {
+	for (auto &&val : in.values) {
 		res.append(PythonObject::FromValue(val, val.type(), default_properties));
 	}
 	return res;
@@ -313,7 +313,7 @@ py::object PyArrowFilterPushdown::TransformFilter(TableFilterSet &filter_collect
 	auto &filters_map = filter_collection.filters;
 
 	py::object expression = py::none();
-	for (auto &it : filters_map) {
+	for (auto &&it : filters_map) {
 		auto column_idx = it.first;
 		auto &column_name = columns[column_idx];
 

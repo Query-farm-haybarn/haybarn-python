@@ -31,7 +31,7 @@ DuckDBPyRelation::DuckDBPyRelation(shared_ptr<Relation> rel_p) : rel(std::move(r
 	}
 	this->executed = false;
 	auto &columns = rel->Columns();
-	for (auto &col : columns) {
+	for (auto &&col : columns) {
 		names.push_back(col.GetName());
 		types.push_back(col.GetType());
 	}
@@ -77,7 +77,7 @@ DuckDBPyRelation::DuckDBPyRelation(shared_ptr<DuckDBPyResult> result_p) : rel(nu
 
 unique_ptr<DuckDBPyRelation> DuckDBPyRelation::ProjectFromExpression(const string &expression) {
 	auto projected_relation = DeriveRelation(rel->Project(expression));
-	for (auto &dep : this->rel->external_dependencies) {
+	for (auto &&dep : this->rel->external_dependencies) {
 		projected_relation->rel->AddExternalDependency(dep);
 	}
 	return projected_relation;
@@ -124,7 +124,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyRelation::ProjectFromTypes(const py::object
 	auto list = py::list(obj);
 	vector<LogicalType> types_filter;
 	// Collect the list of types specified that will be our filter
-	for (auto &item : list) {
+	for (auto &&item : list) {
 		LogicalType type;
 		if (py::isinstance<py::str>(item)) {
 			string type_str = py::str(item);
@@ -169,7 +169,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyRelation::EmptyResult(const shared_ptr<Clie
 	D_ASSERT(types.size() == names.size());
 	dummy_values.reserve(types.size());
 	D_ASSERT(!types.empty());
-	for (auto &type : types) {
+	for (auto &&type : types) {
 		dummy_values.emplace_back(type);
 	}
 	vector<vector<Value>> single_row(1, dummy_values);
@@ -235,7 +235,7 @@ vector<unique_ptr<ParsedExpression>> GetExpressions(ClientContext &context, cons
 	if (py::is_list_like(expr)) {
 		vector<unique_ptr<ParsedExpression>> expressions;
 		auto aggregate_list = py::list(expr);
-		for (auto &item : aggregate_list) {
+		for (auto &&item : aggregate_list) {
 			shared_ptr<DuckDBPyExpression> py_expr;
 			if (!py::try_cast<shared_ptr<DuckDBPyExpression>>(item, py_expr)) {
 				throw InvalidInputException("Please provide arguments of type Expression!");
@@ -1204,7 +1204,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyRelation::Join(DuckDBPyRelation *other, con
 	vector<string> using_list;
 	if (py::is_list_like(condition)) {
 		auto using_list_p = py::list(condition);
-		for (auto &item : using_list_p) {
+		for (auto &&item : using_list_p) {
 			if (!py::isinstance<py::str>(item)) {
 				string actual_type = py::str(py::type::of(item));
 				throw InvalidInputException("Using clause should be a list of strings, not %s", actual_type);
@@ -1311,7 +1311,7 @@ void DuckDBPyRelation::ToParquet(const string &filename, const py::object &compr
 		}
 		vector<Value> partition_by_values;
 		const py::list &partition_fields = partition_by;
-		for (auto &field : partition_fields) {
+		for (auto &&field : partition_fields) {
 			if (!py::isinstance<py::str>(field)) {
 				throw InvalidInputException("to_parquet only accepts 'partition_by' as a list of strings");
 			}
@@ -1501,7 +1501,7 @@ void DuckDBPyRelation::ToCSV(const string &filename, const py::object &sep, cons
 		}
 		vector<Value> partition_by_values;
 		const py::list &partition_fields = partition_by;
-		for (auto &field : partition_fields) {
+		for (auto &&field : partition_fields) {
 			if (!py::isinstance<py::str>(field)) {
 				throw InvalidInputException("to_csv only accepts 'partition_by' as a list of strings");
 			}
@@ -1752,7 +1752,7 @@ string DuckDBPyRelation::Explain(ExplainType type) {
 	auto &coll = materialized.Collection();
 	if (explain_format != ExplainFormat::HTML || !DuckDBPyConnection::IsJupyter()) {
 		string result;
-		for (auto &row : coll.Rows()) {
+		for (auto &&row : coll.Rows()) {
 			// Skip the first column because it just contains 'physical plan'
 			for (idx_t col_idx = 1; col_idx < coll.ColumnCount(); col_idx++) {
 				if (col_idx > 1) {
@@ -1842,7 +1842,7 @@ py::str DuckDBPyRelation::Type() {
 py::list DuckDBPyRelation::Columns() {
 	AssertRelation();
 	py::list res;
-	for (auto &col : rel->Columns()) {
+	for (auto &&col : rel->Columns()) {
 		res.append(col.Name());
 	}
 	return res;
@@ -1851,7 +1851,7 @@ py::list DuckDBPyRelation::Columns() {
 py::list DuckDBPyRelation::ColumnTypes() {
 	AssertRelation();
 	py::list res;
-	for (auto &col : rel->Columns()) {
+	for (auto &&col : rel->Columns()) {
 		res.append(DuckDBPyType(col.Type()));
 	}
 	return res;

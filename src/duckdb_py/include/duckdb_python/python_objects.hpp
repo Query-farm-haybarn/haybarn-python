@@ -75,7 +75,7 @@ struct PyDecimal {
 		template <typename T, typename = std::enable_if<std::numeric_limits<T>::is_integer, T>>
 		static Value Operation(bool signed_value, vector<uint8_t> &digits, uint8_t width, uint8_t scale) {
 			T value = 0;
-			for (auto &digit : digits) {
+			for (auto &&digit : digits) {
 				value = value * 10 + digit;
 			}
 			D_ASSERT(scale >= 0);

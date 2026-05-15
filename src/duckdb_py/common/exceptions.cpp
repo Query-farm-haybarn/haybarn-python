@@ -244,7 +244,7 @@ void PyThrowException(ErrorData &error, PyObject *http_exception) {
 		auto e = py::handle(http_exception)(py::str(error.Message()));
 
 		auto headers = py::dict();
-		for (auto &entry : error.ExtraInfo()) {
+		for (auto &&entry : error.ExtraInfo()) {
 			if (entry.first == "status_code") {
 				e.attr("status_code") = std::stoi(entry.second);
 			} else if (entry.first == "response_body") {
