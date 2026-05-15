@@ -38,7 +38,10 @@ bool PandasDataFrame::IsPyArrowBacked(const py::handle &df) {
 	}
 
 	auto arrow_dtype = import_cache.pandas.ArrowDtype();
-	for (auto &dtype : dtypes) {
+	// pybind11's py::list iterator yields a temporary accessor proxy; binding a
+	// non-const lvalue reference to it is rejected by stricter compilers
+	// (GCC 14 on arm64 manylinux, recent Apple Clang). Use a universal reference.
+	for (auto &&dtype : dtypes) {
 		if (py::isinstance(dtype, arrow_dtype)) {
 			return true;
 		}
