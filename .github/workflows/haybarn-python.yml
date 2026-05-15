@@ -74,13 +74,29 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
+          # CCACHE_REMOTE_STORAGE points at the Haybarn Cloudflare Worker → R2
+          # bucket (same auth/path-prefix as the extension builds). Defined as
+          # a job-level env var here so it's a single source of truth across
+          # the per-platform CIBW_ENVIRONMENT_* strings below, which forward
+          # it into the manylinux container / macOS shell / Windows shell.
+          CCACHE_REMOTE_STORAGE: "https://haybarn-vcpkg-cache.rusty-bb6.workers.dev/ccache|bearer-token=${{ secrets.HAYBARN_VCPKG_TOKEN }}|connect-timeout=10000|operation-timeout=30000"
+          CCACHE_SLOPPINESS: "time_macros,include_file_mtime,pch_defines"
+          CCACHE_COMPILERCHECK: "content"
+          CCACHE_NOHASHDIR: "1"
+          # cibuildwheel forwards env vars to the wheel-build subprocess only
+          # when listed in CIBW_ENVIRONMENT_*; PASS_THROUGH avoids hand-listing
+          # each.
+          CIBW_ENVIRONMENT_PASS_LINUX: 'CCACHE_REMOTE_STORAGE CCACHE_SLOPPINESS CCACHE_COMPILERCHECK CCACHE_NOHASHDIR'
           CIBW_ENVIRONMENT: 'OVERRIDE_GIT_DESCRIBE=v1.5.2'
-          CIBW_ENVIRONMENT_LINUX: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=/project/.ccache'
-          CIBW_ENVIRONMENT_MACOS: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache'
+          # CCACHE_BASEDIR has to be a path *inside* the container/shell that
+          # ccache will see — cibuildwheel mounts the workspace at /project on
+          # Linux, but uses $GITHUB_WORKSPACE on native shells.
+          CIBW_ENVIRONMENT_LINUX: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=/project/.ccache CCACHE_BASEDIR=/project'
+          CIBW_ENVIRONMENT_MACOS: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache CCACHE_BASEDIR=$GITHUB_WORKSPACE'
           # Windows: point CCACHE_DIR at the workspace `.ccache` dir so the
           # actions/cache step above persists it. Without this, ccache writes
           # to its default user-profile location which our cache never sees.
-          CIBW_ENVIRONMENT_WINDOWS: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=$GITHUB_WORKSPACE\\.ccache'
+          CIBW_ENVIRONMENT_WINDOWS: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=$GITHUB_WORKSPACE\\.ccache CCACHE_BASEDIR=$GITHUB_WORKSPACE'
 
       - uses: actions/upload-artifact@v7
         with:
