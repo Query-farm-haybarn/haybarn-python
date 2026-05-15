@@ -48,7 +48,7 @@ jobs:
       # pyproject.toml's cibuildwheel config uses build-frontend "build[uv]";
       # the native (macOS/Windows) builds need `uv` on PATH. (Linux builds run
       # in the manylinux container where cibuildwheel installs it itself.)
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v7
 
       # Persist ccache across runs. pyproject.toml's cibuildwheel `before-build`
       # installs ccache; DuckDB's CMake auto-detects it. CCACHE_DIR is pointed
@@ -72,7 +72,7 @@ jobs:
       # rolled-forward manylinux_2_28:2026.05.13-1 image no longer ships cp38,
       # so @v2.21's hardcoded path exits 127 before the wheel build starts.
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3
+        uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_ENVIRONMENT: 'OVERRIDE_GIT_DESCRIBE=v1.5.2'
           CIBW_ENVIRONMENT_LINUX: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=/project/.ccache'
