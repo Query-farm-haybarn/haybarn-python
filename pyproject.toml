@@ -459,6 +459,10 @@ indent-style = "space"
 ######################################################################################################
 [tool.cibuildwheel]
 build-frontend = "build[uv]"
+# Haybarn: 64-bit native only. cibuildwheel's default `auto` also tries 32-bit
+# (manylinux_i686 on Linux x86_64 runners, x86 on Windows) which we don't ship
+# and which currently fails image resolution against our pinned manylinux tag.
+archs = "auto64"
 # Haybarn: pin the manylinux image to a dated tag so builds are reproducible.
 # An explicit tag requires the full image reference (cibuildwheel only resolves
 # the bare `manylinux_2_28` alias when no tag is given). Roll forward
