@@ -65,7 +65,7 @@ build-backend = "duckdb_packaging.build_backend"
 backend-path = ["./"]
 requires = [
     "scikit-build-core>=0.11.4",
-	"pybind11[global]>=2.6.0",
+	"pybind11[global]==2.13.6",
     "setuptools_scm>=8.0",
 ]
 
@@ -288,7 +288,7 @@ pypi = [ # dependencies used by the pypi cleanup script
 build = [
     "cmake>=3.29.0",
     "ninja>=1.10",
-    "pybind11[global]>=2.6.0",
+    "pybind11[global]==2.13.6",
     "scikit_build_core>=0.11.4",
     "setuptools_scm>=8.0",
 ]
@@ -458,10 +458,12 @@ indent-style = "space"
 ######################################################################################################
 [tool.cibuildwheel]
 build-frontend = "build[uv]"
-manylinux-x86_64-image = "manylinux_2_28"
-manylinux-pypy_x86_64-image = "manylinux_2_28"
-manylinux-aarch64-image = "manylinux_2_28"
-manylinux-pypy_aarch64-image = "manylinux_2_28"
+# Haybarn: pin the manylinux image to a dated tag so builds are reproducible.
+# Roll forward intentionally — newer tags can surface new compiler strictness.
+manylinux-x86_64-image = "manylinux_2_28:2024.10.07-1"
+manylinux-pypy_x86_64-image = "manylinux_2_28:2024.10.07-1"
+manylinux-aarch64-image = "manylinux_2_28:2024.10.07-1"
+manylinux-pypy_aarch64-image = "manylinux_2_28:2024.10.07-1"
 
 [tool.cibuildwheel.linux]
 # ccache is a build speed-up, not a requirement, and is not in the
