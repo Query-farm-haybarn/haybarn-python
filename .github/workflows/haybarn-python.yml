@@ -65,13 +65,16 @@ jobs:
       # The wheel matrix (CIBW_*) is configured in pyproject.toml
       # [tool.cibuildwheel]. Platform-specific CIBW_ENVIRONMENT overrides the
       # generic one, so OVERRIDE_GIT_DESCRIBE is repeated where set.
-      # (Windows MSVC ccache is left as a follow-up — that job is already fast.)
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21
         env:
           CIBW_ENVIRONMENT: 'OVERRIDE_GIT_DESCRIBE=v1.5.2'
           CIBW_ENVIRONMENT_LINUX: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=/project/.ccache'
           CIBW_ENVIRONMENT_MACOS: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache'
+          # Windows: point CCACHE_DIR at the workspace `.ccache` dir so the
+          # actions/cache step above persists it. Without this, ccache writes
+          # to its default user-profile location which our cache never sees.
+          CIBW_ENVIRONMENT_WINDOWS: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 CCACHE_DIR=$GITHUB_WORKSPACE\\.ccache'
 
       - uses: actions/upload-artifact@v4
         with:
