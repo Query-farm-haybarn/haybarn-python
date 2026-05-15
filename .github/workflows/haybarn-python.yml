@@ -45,6 +45,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      # pyproject.toml's cibuildwheel config uses build-frontend "build[uv]";
+      # the native (macOS/Windows) builds need `uv` on PATH. (Linux builds run
+      # in the manylinux container where cibuildwheel installs it itself.)
+      - uses: astral-sh/setup-uv@v5
+
       # The wheel matrix (CIBW_*) is configured in pyproject.toml
       # [tool.cibuildwheel]. CIBW_ENVIRONMENT propagates OVERRIDE_GIT_DESCRIBE
       # into the (Linux-container and native) build environments.
