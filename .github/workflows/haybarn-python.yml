@@ -79,7 +79,7 @@ jobs:
           # a job-level env var here so it's a single source of truth across
           # the per-platform CIBW_ENVIRONMENT_* strings below, which forward
           # it into the manylinux container / macOS shell / Windows shell.
-          CCACHE_REMOTE_STORAGE: "https://haybarn-vcpkg-cache.rusty-bb6.workers.dev/ccache|bearer-token=${{ secrets.HAYBARN_VCPKG_TOKEN }}|connect-timeout=10000|operation-timeout=30000"
+          CCACHE_REMOTE_STORAGE: "http://haybarn-vcpkg-cache.rusty-bb6.workers.dev/ccache|bearer-token=${{ secrets.HAYBARN_VCPKG_TOKEN }}|connect-timeout=10000|operation-timeout=30000"
           CCACHE_SLOPPINESS: "time_macros,include_file_mtime,pch_defines"
           CCACHE_COMPILERCHECK: "content"
           CCACHE_NOHASHDIR: "1"
