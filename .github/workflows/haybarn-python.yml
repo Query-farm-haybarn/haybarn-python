@@ -20,6 +20,13 @@ concurrency:
   group: haybarn-python-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Pin the package version. duckdb_packaging' versioning reads OVERRIDE_GIT_DESCRIBE
+  # and turns it into the PEP 440 version; without it setuptools_scm can't derive
+  # a version from the `haybarn` branch (no version tag at HEAD) and falls back to
+  # the invalid `0.0.1.dev1`.
+  OVERRIDE_GIT_DESCRIBE: v1.5.2
+
 jobs:
   wheels:
     name: Wheels ${{ matrix.os }}
@@ -39,9 +46,12 @@ jobs:
           python-version: '3.12'
 
       # The wheel matrix (CIBW_*) is configured in pyproject.toml
-      # [tool.cibuildwheel].
+      # [tool.cibuildwheel]. CIBW_ENVIRONMENT propagates OVERRIDE_GIT_DESCRIBE
+      # into the (Linux-container and native) build environments.
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21
+        env:
+          CIBW_ENVIRONMENT: 'OVERRIDE_GIT_DESCRIBE=v1.5.2'
 
       - uses: actions/upload-artifact@v4
         with:
