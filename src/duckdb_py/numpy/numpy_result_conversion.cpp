@@ -7,7 +7,7 @@ NumpyResultConversion::NumpyResultConversion(const vector<LogicalType> &types, i
                                              const ClientProperties &client_properties, bool pandas)
     : count(0), capacity(0), pandas(pandas) {
 	owned_data.reserve(types.size());
-	for (auto &type : types) {
+	for (auto &&type : types) {
 		owned_data.emplace_back(type, client_properties, pandas);
 	}
 	Resize(initial_capacity);
@@ -15,11 +15,11 @@ NumpyResultConversion::NumpyResultConversion(const vector<LogicalType> &types, i
 
 void NumpyResultConversion::Resize(idx_t new_capacity) {
 	if (capacity == 0) {
-		for (auto &data : owned_data) {
+		for (auto &&data : owned_data) {
 			data.Initialize(new_capacity);
 		}
 	} else {
-		for (auto &data : owned_data) {
+		for (auto &&data : owned_data) {
 			data.Resize(new_capacity);
 		}
 	}
@@ -39,7 +39,7 @@ void NumpyResultConversion::Append(DataChunk &chunk) {
 	}
 	count += to_append;
 #ifdef DEBUG
-	for (auto &data : owned_data) {
+	for (auto &&data : owned_data) {
 		D_ASSERT(data.data->count == count);
 		D_ASSERT(data.mask->count == count);
 	}

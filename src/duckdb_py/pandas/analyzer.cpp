@@ -92,7 +92,7 @@ static bool IsStructColumnValid(const LogicalType &left, const LogicalType &righ
 static bool CombineStructTypes(LogicalType &result, const LogicalType &input) {
 	D_ASSERT(input.id() == LogicalTypeId::STRUCT);
 	auto &children = StructType::GetChildTypes(input);
-	for (auto &type : children) {
+	for (auto &&type : children) {
 		if (!UpgradeType(result, type.second)) {
 			return false;
 		}

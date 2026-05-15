@@ -202,7 +202,7 @@ static bool IsMapType(const py::tuple &args) {
 	if (args.size() != 2) {
 		return false;
 	}
-	for (auto &arg : args) {
+	for (auto &&arg : args) {
 		if (GetTypeObjectType(arg) == PythonTypeObject::INVALID) {
 			return false;
 		}
@@ -281,7 +281,7 @@ static LogicalType FromDictionary(const py::object &obj) {
 		throw InvalidInputException("Could not convert empty dictionary to a duckdb STRUCT type");
 	}
 	children.reserve(dict.size());
-	for (auto &item : dict) {
+	for (auto &&item : dict) {
 		auto &name_p = item.first;
 		auto type_p = py::reinterpret_borrow<py::object>(item.second);
 		string name = py::str(name_p);

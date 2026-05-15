@@ -63,7 +63,7 @@ static py::object FunctionCall(NumpyResultConversion &conversion, const vector<s
 }
 
 static bool ContainsNullType(const vector<LogicalType> &types) {
-	for (auto &type : types) {
+	for (auto &&type : types) {
 		if (type.id() == LogicalTypeId::SQLNULL) {
 			return true;
 		}
@@ -112,7 +112,7 @@ unique_ptr<FunctionData> BindExplicitSchema(unique_ptr<MapFunctionData> function
 
 	types.reserve(column_count);
 	names.reserve(column_count);
-	for (auto &item : schema) {
+	for (auto &&item : schema) {
 		auto name = item.first;
 		auto type_p = item.second;
 		names.push_back(std::string(py::str(name)));

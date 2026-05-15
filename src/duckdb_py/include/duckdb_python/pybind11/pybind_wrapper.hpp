@@ -91,7 +91,7 @@ bool try_cast(const handle &object, T &result) {
 
 template <class T, typename... ARGS>
 void DefineMethod(std::vector<const char *> aliases, T &mod, ARGS &&...args) {
-	for (auto &alias : aliases) {
+	for (auto &&alias : aliases) {
 		mod.def(alias, args...);
 	}
 }
