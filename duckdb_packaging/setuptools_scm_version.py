@@ -14,9 +14,21 @@ from ._versioning import format_version, parse_version
 # MAIN_BRANCH_VERSIONING should be 'True' on main branch only
 MAIN_BRANCH_VERSIONING = False
 
-SCM_PRETEND_ENV_VAR = "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_DUCKDB"
+# Haybarn: setuptools_scm reads SETUPTOOLS_SCM_PRETEND_VERSION_FOR_<NORMALIZED_DIST_NAME>.
+# This package's name is `haybarn` (changed from upstream `duckdb`), so the
+# env var name MUST end in _FOR_HAYBARN — the old _FOR_DUCKDB suffix is silently
+# ignored and setuptools_scm falls back to scanning git tags (finding the
+# inherited upstream v1.5.2 tag from before the fork and bumping patch by one).
+SCM_PRETEND_ENV_VAR = "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_HAYBARN"
 SCM_GLOBAL_PRETEND_ENV_VAR = "SETUPTOOLS_SCM_PRETEND_VERSION"
+# OVERRIDE_GIT_DESCRIBE carries the upstream DuckDB tag (e.g. "v1.5.2") which
+# drives storage-format compatibility on the C++ side. HAYBARN_GIT_DESCRIBE
+# carries the Haybarn-specific tag (e.g. "haybarn-v1.5.2-rc1") and is what
+# the *wheel version* should track. If set, we prefer it; otherwise we fall
+# back to OVERRIDE_GIT_DESCRIBE so the existing behavior is preserved for
+# builds that haven't been wired into the new naming yet.
 OVERRIDE_GIT_DESCRIBE_ENV_VAR = "OVERRIDE_GIT_DESCRIBE"
+HAYBARN_GIT_DESCRIBE_ENV_VAR = "HAYBARN_GIT_DESCRIBE"
 
 
 class _VersionObject(Protocol):
@@ -86,15 +98,36 @@ def _bump_dev_version(base_version: str, distance: int) -> str:
 def forced_version_from_env() -> str:
     """Handle getting versions from environment variables.
 
-    Only supports a single way of manually overriding the version through
-    OVERRIDE_GIT_DESCRIBE. If SETUPTOOLS_SCM_PRETEND_VERSION* is set, it gets unset.
+    Prefers HAYBARN_GIT_DESCRIBE (e.g. "haybarn-v1.5.2-rc1-34-g111577c34c") when
+    set — that's the Haybarn-specific tag and is what the wheel version should
+    track. The leading "haybarn-v" prefix is stripped so the value matches the
+    "v…"-prefixed shape that _git_describe_override_to_pep_440 expects (i.e.
+    "v1.5.2-rc1-34-g111577c34c"). Falls back to OVERRIDE_GIT_DESCRIBE for
+    upstream-compatible builds that pass the DuckDB tag directly.
+
+    If SETUPTOOLS_SCM_PRETEND_VERSION* is set without a corresponding describe
+    override, it gets unset to avoid masking the real version.
     """
+    haybarn_value = os.getenv(HAYBARN_GIT_DESCRIBE_ENV_VAR)
     override_value = os.getenv(OVERRIDE_GIT_DESCRIBE_ENV_VAR)
+    describe_value = None
+    describe_source = None
+
+    if haybarn_value:
+        # "haybarn-v1.5.2-rc1-34-g111577c34c" -> "v1.5.2-rc1-34-g111577c34c"
+        # If something else is passed (e.g. a bare sha from --always fallback),
+        # leave it alone and let the parser raise — better than silently masking.
+        describe_value = re.sub(r"^haybarn-", "", haybarn_value)
+        describe_source = HAYBARN_GIT_DESCRIBE_ENV_VAR
+    elif override_value:
+        describe_value = override_value
+        describe_source = OVERRIDE_GIT_DESCRIBE_ENV_VAR
+
     pep440_version = None
 
-    if override_value:
-        print(f"[versioning] Found {OVERRIDE_GIT_DESCRIBE_ENV_VAR}={override_value}")
-        pep440_version = _git_describe_override_to_pep_440(override_value)
+    if describe_value:
+        print(f"[versioning] Found {describe_source}={describe_value}")
+        pep440_version = _git_describe_override_to_pep_440(describe_value)
         os.environ[SCM_PRETEND_ENV_VAR] = pep440_version
         print(f"[versioning] Injected {SCM_PRETEND_ENV_VAR}={pep440_version}")
     elif SCM_PRETEND_ENV_VAR in os.environ:
