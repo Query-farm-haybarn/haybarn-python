@@ -21,19 +21,54 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Pin the package version. duckdb_packaging' versioning reads OVERRIDE_GIT_DESCRIBE
-  # and turns it into the PEP 440 version; without it setuptools_scm can't derive
-  # a version from the `haybarn` branch (no version tag at HEAD) and falls back to
-  # the invalid `0.0.1.dev1`.
+  # Pin the upstream (DuckDB) version used for storage/extension compatibility.
+  # duckdb_packaging' versioning reads OVERRIDE_GIT_DESCRIBE and turns it into a
+  # PEP 440 string; without it setuptools_scm can't derive a version from the
+  # `haybarn` branch (no `v…` tag at HEAD) and falls back to `0.0.1.dev1`.
+  # OVERRIDE_GIT_DESCRIBE is only consulted by forced_version_from_env() if
+  # HAYBARN_GIT_DESCRIBE is unset, so HAYBARN_GIT_DESCRIBE (derived per-job
+  # in the `derive-version` job below) wins for the wheel name.
   OVERRIDE_GIT_DESCRIBE: v1.5.2
-  # Haybarn-specific version string baked into the engine via CMakeLists.txt.
-  # On tag push this is "haybarn-v1.5.2-rc1" etc.; on workflow_dispatch it's
-  # empty, and CMake falls back to deriving via `git describe --match haybarn-v*`.
-  HAYBARN_GIT_DESCRIBE: ${{ startsWith(github.ref, 'refs/tags/haybarn-v') && github.ref_name || '' }}
 
 jobs:
+  # Compute HAYBARN_GIT_DESCRIBE once and fan it out to every build job. We
+  # can't put this in workflow-level `env:` because for non-tag triggers the
+  # value has to come from `git describe` on the submodule, which needs the
+  # repo checked out — workflow-level env evaluation happens before any
+  # steps run.
+  derive-version:
+    name: Derive Haybarn version
+    runs-on: ubuntu-24.04
+    outputs:
+      haybarn_describe: ${{ steps.derive.outputs.haybarn_describe }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - id: derive
+        # On tag push (refs/tags/haybarn-v…), use the tag name verbatim so the
+        # version is fully reproducible from the tag. Otherwise ask the engine
+        # submodule for its `git describe --match haybarn-v*` — e.g.
+        # `haybarn-v1.5.2-rc1-34-g111577c34c`. `--always` so even a missing tag
+        # falls back to a bare sha rather than empty (in which case the
+        # setuptools_scm parser will reject it loudly, surfacing the bad state).
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/haybarn-v* ]]; then
+            describe="${GITHUB_REF_NAME}"
+          else
+            describe="$(git -C external/duckdb describe --tags --match 'haybarn-v*' --always)"
+          fi
+          echo "haybarn_describe=${describe}" >> "$GITHUB_OUTPUT"
+          echo "Derived HAYBARN_GIT_DESCRIBE=${describe}"
   wheels:
     name: Wheels ${{ matrix.os }}
+    needs: derive-version
+    env:
+      # Consumed by duckdb_packaging.setuptools_scm_version.forced_version_from_env
+      # (strips the `haybarn-` prefix and runs it through the override parser)
+      # and baked into the engine as HAYBARN_VERSION_STRING via CMake.
+      HAYBARN_GIT_DESCRIBE: ${{ needs.derive-version.outputs.haybarn_describe }}
     strategy:
       fail-fast: false
       matrix:
@@ -114,7 +149,10 @@ jobs:
 
   sdist:
     name: Source distribution
+    needs: derive-version
     runs-on: ubuntu-24.04
+    env:
+      HAYBARN_GIT_DESCRIBE: ${{ needs.derive-version.outputs.haybarn_describe }}
     steps:
       - uses: actions/checkout@v6
         with:
