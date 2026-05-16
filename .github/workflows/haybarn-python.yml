@@ -161,7 +161,12 @@ jobs:
           # explicitly set; ccache 4.6+ handles MSVC (`cl.exe`) natively. The
           # other ccache_* tuning vars also need to be re-listed here because
           # `CIBW_ENVIRONMENT_PASS_LINUX` only forwards into the Linux container.
-          CIBW_ENVIRONMENT_WINDOWS: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 HAYBARN_GIT_DESCRIBE=%HAYBARN_GIT_DESCRIBE% CCACHE_DIR=$GITHUB_WORKSPACE\\.ccache CCACHE_BASEDIR=$GITHUB_WORKSPACE CCACHE_NOHASHDIR=1 CCACHE_SLOPPINESS=time_macros,include_file_mtime,pch_defines CCACHE_COMPILERCHECK=content CCACHE_COMPILERTYPE=msvc CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache CCACHE_REMOTE_STORAGE=$CCACHE_REMOTE_STORAGE'
+          # cibuildwheel parses CIBW_ENVIRONMENT_* with POSIX-shell-style
+          # expansion regardless of host OS, so `$VAR` works on Windows too.
+          # The previous %HAYBARN_GIT_DESCRIBE% (cmd-style) reached the build
+          # backend as a literal string and triggered:
+          #     ValueError: Invalid git describe override: %HAYBARN_GIT_DESCRIBE%
+          CIBW_ENVIRONMENT_WINDOWS: 'OVERRIDE_GIT_DESCRIBE=v1.5.2 HAYBARN_GIT_DESCRIBE=$HAYBARN_GIT_DESCRIBE CCACHE_DIR=$GITHUB_WORKSPACE\\.ccache CCACHE_BASEDIR=$GITHUB_WORKSPACE CCACHE_NOHASHDIR=1 CCACHE_SLOPPINESS=time_macros,include_file_mtime,pch_defines CCACHE_COMPILERCHECK=content CCACHE_COMPILERTYPE=msvc CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache CCACHE_REMOTE_STORAGE=$CCACHE_REMOTE_STORAGE'
 
       - uses: actions/upload-artifact@v7
         with:
