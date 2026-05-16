@@ -62,7 +62,7 @@ jobs:
           echo "haybarn_describe=${describe}" >> "$GITHUB_OUTPUT"
           echo "Derived HAYBARN_GIT_DESCRIBE=${describe}"
   wheels:
-    name: Wheels ${{ matrix.os }}
+    name: Wheels ${{ matrix.os }} / ${{ matrix.python }}
     needs: derive-version
     env:
       # Consumed by duckdb_packaging.setuptools_scm_version.forced_version_from_env
@@ -71,8 +71,18 @@ jobs:
       HAYBARN_GIT_DESCRIBE: ${{ needs.derive-version.outputs.haybarn_describe }}
     strategy:
       fail-fast: false
+      # Two-dimensional matrix: 4 OSes × 5 Python versions = 20 parallel jobs,
+      # one wheel build each (Linux jobs build both manylinux + musllinux for
+      # the chosen Python ABI in the same container — splitting those further
+      # would double the manylinux pull overhead without much wall-clock win).
+      # cibuildwheel iterates CIBW_BUILD patterns *serially* within a single
+      # job, so keeping the old single-job-per-OS layout meant ~5× redundant
+      # serialization of 2000-TU engine compiles. With the matrix expansion
+      # the slowest job is one Python ABI's build (~10–15 min) instead of the
+      # full 5-ABI sweep (~2 h on Linux-arm).
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2022]
+        python: [cp310, cp311, cp312, cp313, cp314]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -93,12 +103,18 @@ jobs:
       # installs ccache; DuckDB's CMake auto-detects it. CCACHE_DIR is pointed
       # at .ccache in the workspace — which is /project/.ccache inside the Linux
       # build container and $GITHUB_WORKSPACE/.ccache for native macOS builds.
+      # Per-(os, python) cache key so the 20 matrix legs don't race each other
+      # writing the same key on completion. The R2 remote-storage layer is
+      # content-addressed by ccache hash (which already incorporates the Python
+      # ABI through preprocessor defines), so cross-leg hits still come through
+      # the remote — the local cache is just a warm-start optimization.
       - name: ccache
         uses: actions/cache@v5
         with:
           path: .ccache
-          key: ccache-python-${{ matrix.os }}-${{ github.sha }}
+          key: ccache-python-${{ matrix.os }}-${{ matrix.python }}-${{ github.sha }}
           restore-keys: |
+            ccache-python-${{ matrix.os }}-${{ matrix.python }}-
             ccache-python-${{ matrix.os }}-
 
       # The wheel matrix (CIBW_*) is configured in pyproject.toml
@@ -113,6 +129,11 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
+          # Scope this matrix leg to a single Python ABI. Overrides the
+          # `build = "cp310-* cp311-* cp312-* cp313-* cp314-*"` pattern in
+          # pyproject.toml so we don't reserialize all five within one job.
+          # Pattern still matches both manylinux + musllinux on Linux.
+          CIBW_BUILD: "${{ matrix.python }}-*"
           # CCACHE_REMOTE_STORAGE points at the Haybarn Cloudflare Worker → R2
           # bucket (same auth/path-prefix as the extension builds). Defined as
           # a job-level env var here so it's a single source of truth across
@@ -144,7 +165,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: haybarn-wheels-${{ matrix.os }}
+          name: haybarn-wheels-${{ matrix.os }}-${{ matrix.python }}
           path: wheelhouse/*.whl
 
   sdist:
