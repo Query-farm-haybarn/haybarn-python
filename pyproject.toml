@@ -494,13 +494,13 @@ musllinux-aarch64-image      = "quay.io/pypa/musllinux_1_2_aarch64:2026.05.13-1"
 # cibuildwheel doesn't have a native after-build hook, so this is the
 # closest signal we get into whether the remote storage is being consulted.
 before-build = [
-  "ccache -d /project/.ccache -sv || true",
+  "ccache -d /ccache -sv || true",
   "yum install -y curl tar xz",
   "curl -fsSL https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-$(uname -m)-musl-static.tar.xz -o /tmp/ccache.tar.xz",
   "tar -xJf /tmp/ccache.tar.xz -C /tmp",
   "install -m 0755 /tmp/ccache-4.13.6-linux-$(uname -m)-musl-static/ccache /usr/local/bin/ccache",
   "ccache --version",
-  "ccache -d /project/.ccache -sv || true",
+  "ccache -d /ccache -sv || true",
 ]
 
 # musllinux containers are Alpine (apk, not yum) — same ccache binary,
@@ -508,13 +508,13 @@ before-build = [
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
 before-build = [
-  "ccache -d /project/.ccache -sv || true",
+  "ccache -d /ccache -sv || true",
   "apk add --no-cache curl tar xz",
   "curl -fsSL https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-$(uname -m)-musl-static.tar.xz -o /tmp/ccache.tar.xz",
   "tar -xJf /tmp/ccache.tar.xz -C /tmp",
   "install -m 0755 /tmp/ccache-4.13.6-linux-$(uname -m)-musl-static/ccache /usr/local/bin/ccache",
   "ccache --version",
-  "ccache -d /project/.ccache -sv || true",
+  "ccache -d /ccache -sv || true",
 ]
 
 [tool.cibuildwheel.macos]
