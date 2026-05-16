@@ -13,6 +13,7 @@ This module wraps the scikit-build-core build backend because:
 Also see https://peps.python.org/pep-0517/#in-tree-build-backends.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -33,13 +34,26 @@ from scikit_build_core.build import (
 )
 
 from duckdb_packaging._versioning import get_git_describe, pep440_to_git_tag, strip_post_from_version
-from duckdb_packaging.setuptools_scm_version import MAIN_BRANCH_VERSIONING, forced_version_from_env
+from duckdb_packaging.setuptools_scm_version import (
+    MAIN_BRANCH_VERSIONING,
+    OVERRIDE_GIT_DESCRIBE_ENV_VAR,
+    forced_version_from_env,
+)
 
 _DUCKDB_VERSION_FILENAME = "duckdb_version.txt"
 _LOGGING_FORMAT = "[duckdb_pytooling.build_backend] {}"
 _SKBUILD_CMAKE_OVERRIDE_GIT_DESCRIBE = "cmake.define.OVERRIDE_GIT_DESCRIBE"
 # The below will check whether we should set a specific version in our build, and if so, set the version
 _FORCED_PEP440_VERSION = forced_version_from_env()
+# Haybarn: the engine's `OVERRIDE_GIT_DESCRIBE` (parsed by external/duckdb's
+# CMakeLists.txt) is decoupled from the wheel version. The wheel version
+# tracks Haybarn-specific tags (haybarn-v…); the engine override pins the
+# upstream DuckDB tag the engine source corresponds to (e.g. "v1.5.2") and
+# governs storage-format compatibility. Pass the env var through verbatim
+# rather than re-synthesizing it from the PEP440 wheel version, because
+# things like "1.5.2rc2.dev34+g111577c34c" round-trip into invalid git
+# describe shapes ("v1.5.2-rc2.dev34+g111577c34c") that the engine rejects.
+_RAW_OVERRIDE_GIT_DESCRIBE = os.getenv(OVERRIDE_GIT_DESCRIBE_ENV_VAR)
 
 
 def _log(msg: str) -> None:
@@ -202,7 +216,12 @@ def build_sdist(sdist_directory: str, config_settings: dict[str, list[str] | str
         msg = "Not in a git repository, can't create an sdist"
         raise RuntimeError(msg)
     submodule_path = _duckdb_submodule_path()
-    if _FORCED_PEP440_VERSION is not None:
+    # Prefer the engine-tag env var verbatim — see _RAW_OVERRIDE_GIT_DESCRIBE
+    # docstring at the top of the module for why we don't round-trip through
+    # the PEP440 wheel version anymore.
+    if _RAW_OVERRIDE_GIT_DESCRIBE:
+        duckdb_version = _RAW_OVERRIDE_GIT_DESCRIBE
+    elif _FORCED_PEP440_VERSION is not None:
         duckdb_version = pep440_to_git_tag(strip_post_from_version(_FORCED_PEP440_VERSION))
     else:
         duckdb_version = get_git_describe(repo_path=submodule_path, since_minor=MAIN_BRANCH_VERSIONING)
@@ -241,6 +260,11 @@ def build_wheel(
         _log("Building duckdb wheel from sdist. Reading duckdb version from file.")
         config_settings = config_settings or {}
         duckdb_version = _read_duckdb_long_version()
+    # See _RAW_OVERRIDE_GIT_DESCRIBE docstring at the top of the module: the
+    # engine git describe is decoupled from the wheel PEP440 version for
+    # Haybarn, so the env var wins when set.
+    elif _RAW_OVERRIDE_GIT_DESCRIBE:
+        duckdb_version = _RAW_OVERRIDE_GIT_DESCRIBE
     elif _FORCED_PEP440_VERSION is not None:
         duckdb_version = pep440_to_git_tag(strip_post_from_version(_FORCED_PEP440_VERSION))
 
