@@ -1,3 +1,12 @@
+# NOT IN USE — kept for reference only.
+#
+# This workflow is inherited from the upstream duckdb/duckdb-python release
+# plumbing and is NOT what publishes Haybarn wheels. The active publisher is
+# .github/workflows/haybarn-python.yml, which has its own self-contained
+# matrix and does not call this workflow. Changes here have no effect on
+# what actually ships to PyPI. If you're trying to add or remove a wheel
+# build target, edit haybarn-python.yml instead.
+
 name: Wheels packaging
 on:
   workflow_call:
