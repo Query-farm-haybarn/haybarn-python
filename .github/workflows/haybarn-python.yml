@@ -81,8 +81,14 @@ jobs:
       # the slowest job is one Python ABI's build (~10–15 min) instead of the
       # full 5-ABI sweep (~2 h on Linux-arm).
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2022]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2022, windows-11-arm]
         python: [cp310, cp311, cp312, cp313, cp314]
+        exclude:
+          # cp310 on Windows ARM64: too many test dependencies (pyarrow, torch,
+          # tensorflow, adbc, gcsfs, fsspec) lack ARM64 wheels for 3.10.
+          # Pyproject.toml's resolution environment requires Python >=3.11 for
+          # win32+ARM64 anyway, so cp310 ARM64 isn't supported.
+          - { os: windows-11-arm, python: cp310 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
