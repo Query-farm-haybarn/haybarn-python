@@ -13,8 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Where to publish: "pypi", "testpypi", or empty for none'
+        description: 'Where to publish: "pypi" (default), "testpypi", or "none" to skip'
         type: string
+        default: 'pypi'
 
 concurrency:
   group: haybarn-python-${{ github.ref }}
@@ -245,7 +246,10 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: [wheels, sdist]
-    if: ${{ inputs.publish == 'pypi' || inputs.publish == 'testpypi' }}
+    # Publish to PyPI by default. Tag pushes (no `inputs`) and dispatches that
+    # leave the default in place both land here; only an explicit "none" skips,
+    # and "testpypi" redirects the upload below.
+    if: ${{ inputs.publish != 'none' }}
     runs-on: ubuntu-24.04
     # PyPI Trusted Publishing (OIDC) — no PYPI_API_TOKEN secret needed. Requires
     # a pending/registered publisher on (Test)PyPI for owner Query-farm-haybarn,
