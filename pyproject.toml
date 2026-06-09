@@ -524,9 +524,15 @@ before-build = [
 before-build = ["brew install ccache", "ccache -s || true"]
 
 [tool.cibuildwheel.windows]
-# Windows wheel builds use MSVC (cl.exe). ccache doesn't intercept cl.exe
-# without the masquerade-wrapper trick; the install runs but the build
-# doesn't actually go through ccache. Leaving the install in for now so
-# `ccache --version` works inside before-build hooks; the actual ccache
-# integration on Windows is a separate effort.
-before-build = ["choco install ccache"]
+# Windows wheel builds use MSVC (cl.exe). The build wires ccache in via
+# CMAKE_C/CXX_COMPILER_LAUNCHER=ccache + CCACHE_COMPILERTYPE=msvc (set in the
+# workflow's CIBW_ENVIRONMENT_WINDOWS); ccache 4.6+ intercepts cl.exe natively,
+# so no masquerade-wrapper trick is needed. Whether that path is actually
+# producing hits was previously unverifiable because this hook emitted no
+# stats. The trailing `ccache -sv` fixes that: cibuildwheel has no after-build
+# hook, so — like the Linux/macOS legs — it prints the cache state restored
+# from actions/cache + the remote R2 backend (baseline = 0 on a cold leg), and
+# the *next* run's dump reveals whether the prior build populated/hit the
+# cache. Diagnostic only; `|| ver > nul` swallows a nonzero exit (cmd's
+# `|| true` equivalent) so a stats hiccup never fails the build.
+before-build = ["choco install ccache", "ccache -sv || ver > nul"]
