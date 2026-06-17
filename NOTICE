@@ -25,7 +25,7 @@ Modifications made by Haybarn
 -----------------------------
 
 This is a hard fork of duckdb/duckdb-python, kept as a small curated commit
-stack on top of an upstream release tag (currently v1.5.3):
+stack on top of an upstream release tag (currently v1.5.4):
 
   * branding: rename package and compiled module to haybarn
       The distribution and import name is `haybarn`; the package directory is
