@@ -29,7 +29,7 @@ env:
   # OVERRIDE_GIT_DESCRIBE is only consulted by forced_version_from_env() if
   # HAYBARN_GIT_DESCRIBE is unset, so HAYBARN_GIT_DESCRIBE (derived per-job
   # in the `derive-version` job below) wins for the wheel name.
-  OVERRIDE_GIT_DESCRIBE: v1.5.4
+  OVERRIDE_GIT_DESCRIBE: v1.5.5
 
 jobs:
   # Compute HAYBARN_GIT_DESCRIBE once and fan it out to every build job. We
@@ -51,7 +51,7 @@ jobs:
         # On tag push (refs/tags/haybarn-v…), use the tag name verbatim so the
         # version is fully reproducible from the tag. Otherwise ask the engine
         # submodule for its `git describe --match haybarn-v*` — e.g.
-        # `haybarn-v1.5.4-rc1-34-g111577c34c`. `--always` so even a missing tag
+        # `haybarn-v1.5.5-rc1-34-g111577c34c`. `--always` so even a missing tag
         # falls back to a bare sha rather than empty (in which case the
         # setuptools_scm parser will reject it loudly, surfacing the bad state).
         run: |
@@ -173,7 +173,7 @@ jobs:
           # when listed in CIBW_ENVIRONMENT_*; PASS_THROUGH avoids hand-listing
           # each.
           CIBW_ENVIRONMENT_PASS_LINUX: 'CCACHE_REMOTE_STORAGE CCACHE_SLOPPINESS CCACHE_COMPILERCHECK CCACHE_NOHASHDIR HAYBARN_GIT_DESCRIBE'
-          CIBW_ENVIRONMENT: 'OVERRIDE_GIT_DESCRIBE=v1.5.4'
+          CIBW_ENVIRONMENT: 'OVERRIDE_GIT_DESCRIBE=v1.5.5'
           # Bind-mount the host's .ccache into the container at /ccache so
           # ccache writes survive container destruction. Without this,
           # cibuildwheel's project-copy semantics (NOT bind mount) cause
@@ -183,8 +183,8 @@ jobs:
           # tree inside the container); it normalizes paths in ccache hashes
           # so two different absolute prefixes still hit the same key.
           # CCACHE_DIR points at the bind-mounted /ccache (= host .ccache).
-          CIBW_ENVIRONMENT_LINUX: 'OVERRIDE_GIT_DESCRIBE=v1.5.4 CCACHE_DIR=/ccache CCACHE_BASEDIR=/project'
-          CIBW_ENVIRONMENT_MACOS: 'OVERRIDE_GIT_DESCRIBE=v1.5.4 HAYBARN_GIT_DESCRIBE=$HAYBARN_GIT_DESCRIBE CCACHE_DIR=$GITHUB_WORKSPACE/.ccache CCACHE_BASEDIR=$GITHUB_WORKSPACE'
+          CIBW_ENVIRONMENT_LINUX: 'OVERRIDE_GIT_DESCRIBE=v1.5.5 CCACHE_DIR=/ccache CCACHE_BASEDIR=/project'
+          CIBW_ENVIRONMENT_MACOS: 'OVERRIDE_GIT_DESCRIBE=v1.5.5 HAYBARN_GIT_DESCRIBE=$HAYBARN_GIT_DESCRIBE CCACHE_DIR=$GITHUB_WORKSPACE/.ccache CCACHE_BASEDIR=$GITHUB_WORKSPACE'
           # Windows: point CCACHE_DIR at the workspace `.ccache` dir so the
           # actions/cache step above persists it. Without this, ccache writes
           # to its default user-profile location which our cache never sees.
@@ -197,7 +197,7 @@ jobs:
           # The previous %HAYBARN_GIT_DESCRIBE% (cmd-style) reached the build
           # backend as a literal string and triggered:
           #     ValueError: Invalid git describe override: %HAYBARN_GIT_DESCRIBE%
-          CIBW_ENVIRONMENT_WINDOWS: 'OVERRIDE_GIT_DESCRIBE=v1.5.4 HAYBARN_GIT_DESCRIBE=$HAYBARN_GIT_DESCRIBE CCACHE_DIR=$GITHUB_WORKSPACE\\.ccache CCACHE_BASEDIR=$GITHUB_WORKSPACE CCACHE_NOHASHDIR=1 CCACHE_SLOPPINESS=time_macros,include_file_mtime,pch_defines CCACHE_COMPILERCHECK=content CCACHE_COMPILERTYPE=msvc CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache CCACHE_REMOTE_STORAGE=$CCACHE_REMOTE_STORAGE'
+          CIBW_ENVIRONMENT_WINDOWS: 'OVERRIDE_GIT_DESCRIBE=v1.5.5 HAYBARN_GIT_DESCRIBE=$HAYBARN_GIT_DESCRIBE CCACHE_DIR=$GITHUB_WORKSPACE\\.ccache CCACHE_BASEDIR=$GITHUB_WORKSPACE CCACHE_NOHASHDIR=1 CCACHE_SLOPPINESS=time_macros,include_file_mtime,pch_defines CCACHE_COMPILERCHECK=content CCACHE_COMPILERTYPE=msvc CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache CCACHE_REMOTE_STORAGE=$CCACHE_REMOTE_STORAGE'
 
       # Linux only: the container wrote .ccache as root via the bind mount,
       # so the actions/cache save step (running as the `runner` user) can't
