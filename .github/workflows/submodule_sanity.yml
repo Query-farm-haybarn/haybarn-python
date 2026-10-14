@@ -7,11 +7,8 @@ name: Submodule sanity
 # build and test jobs, and a required check that never reports blocks the merge.
 
 on:
-  pull_request:
-    branches:
-      - main
-      - v*.*-*
-    types: [opened, reopened, synchronize, labeled, unlabeled]
+  # Haybarn: upstream auto-triggers removed so this workflow
+  # does not run on the fork. Still runnable manually if needed.
   workflow_dispatch:
 
 concurrency:

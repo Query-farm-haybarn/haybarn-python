@@ -10,19 +10,9 @@ run-name: Warm the build caches on ${{ github.ref_name }}
 # workflow only triggers on branches this file exists on. Keep this file
 # identical across branches.
 on:
-  push:
-    branches:
-      - main
-      - v1.4-andium
-      - v1.5-variegata
-    paths:
-      - 'external/duckdb'
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - 'pyproject.toml'
-      - '.github/workflows/cache_warm.yml'
-      - '.github/workflows/packaging_wheels.yml'
-      - '.github/actions/**'
+  # Haybarn: upstream auto-triggers removed so this workflow
+  # does not run on the fork. Still runnable manually if needed.
+  workflow_dispatch:
 
 concurrency:
   group: cache-warm-${{ github.ref }}
