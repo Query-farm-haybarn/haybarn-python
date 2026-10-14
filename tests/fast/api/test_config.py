@@ -66,7 +66,7 @@ class TestDBConfig:
 
     def test_user_agent_default(self, duckdb_cursor):
         con_regular = haybarn.connect(":memory:")
-        regex = re.compile("duckdb/.* python/.*")
+        regex = re.compile("haybarn/.* python/.*")
         # Expands to: SELECT * FROM pragma_user_agent()
         assert regex.match(con_regular.sql("PRAGMA user_agent").fetchone()[0]) is not None
         custom_user_agent = con_regular.sql("SELECT current_setting('custom_user_agent')").fetchone()
@@ -74,7 +74,7 @@ class TestDBConfig:
 
     def test_user_agent_custom(self, duckdb_cursor):
         con_regular = haybarn.connect(":memory:", config={"custom_user_agent": "CUSTOM_STRING"})
-        regex = re.compile("duckdb/.* python/.* CUSTOM_STRING")
+        regex = re.compile("haybarn/.* python/.* CUSTOM_STRING")
         assert regex.match(con_regular.sql("PRAGMA user_agent").fetchone()[0]) is not None
         custom_user_agent = con_regular.sql("SELECT current_setting('custom_user_agent')").fetchone()
         assert custom_user_agent[0] == "CUSTOM_STRING"

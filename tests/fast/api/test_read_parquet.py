@@ -4,7 +4,7 @@ from typing import NoReturn
 
 import pytest
 
-import duckdb
+import haybarn as duckdb
 
 
 @pytest.fixture

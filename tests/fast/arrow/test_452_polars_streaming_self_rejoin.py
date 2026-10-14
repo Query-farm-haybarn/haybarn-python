@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-import duckdb
+import haybarn as duckdb
 
 if TYPE_CHECKING:
     from pathlib import Path

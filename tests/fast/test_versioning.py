@@ -303,13 +303,13 @@ class TestEnvironmentVariableHandling(unittest.TestCase):
     def test_override_git_describe_basic(self):
         """Test OVERRIDE_GIT_DESCRIBE with basic format."""
         assert forced_version_from_env() == "1.2.4.dev5+g1234567"
-        assert os.environ["SETUPTOOLS_SCM_PRETEND_VERSION_FOR_DUCKDB"] == "1.2.4.dev5+g1234567"
+        assert os.environ["SETUPTOOLS_SCM_PRETEND_VERSION_FOR_HAYBARN"] == "1.2.4.dev5+g1234567"
 
     @patch.dict("os.environ", {"OVERRIDE_GIT_DESCRIBE": "v1.2.3-post1-3-g1234567", "MAIN_BRANCH_VERSIONING": "0"})
     def test_override_git_describe_post_release(self):
         """Test OVERRIDE_GIT_DESCRIBE with post-release format."""
         assert forced_version_from_env() == "1.2.3.post2.dev3+g1234567"
-        assert os.environ["SETUPTOOLS_SCM_PRETEND_VERSION_FOR_DUCKDB"] == "1.2.3.post2.dev3+g1234567"
+        assert os.environ["SETUPTOOLS_SCM_PRETEND_VERSION_FOR_HAYBARN"] == "1.2.3.post2.dev3+g1234567"
 
     @patch.dict("os.environ", {"OVERRIDE_GIT_DESCRIBE": "v1.2.3-rc1"})
     def test_override_git_describe_rc_release(self):

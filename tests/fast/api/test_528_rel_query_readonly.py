@@ -11,7 +11,7 @@ rel.query() trips the bug.
 
 from __future__ import annotations
 
-import duckdb
+import haybarn as duckdb
 
 
 def test_rel_query_on_readonly_database(tmp_path):

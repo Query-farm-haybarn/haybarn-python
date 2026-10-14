@@ -40,7 +40,7 @@ class TestRAPIQuery:
 
     def test_query_chain_using_alias(self):
         # Test query chaining using DuckDBPyRelation.alias
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.execute("CREATE TABLE raw (yr INT, facility VARCHAR, val DOUBLE)")
         con.execute("INSERT INTO raw VALUES (2020, 'F001', 1.0), (2021, 'F001', 2.0)")
         data = con.sql("SELECT * FROM raw")

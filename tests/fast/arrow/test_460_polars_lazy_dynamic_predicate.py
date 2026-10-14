@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-import duckdb
+import haybarn as duckdb
 
 # Dynamic-predicate pushdown to IO sources starts at Polars 1.39; below that the
 # bug is unreachable, so skip rather than xfail.
@@ -65,7 +65,7 @@ def test_460_user_filter_combined_with_dynamic_predicate_is_not_dropped(engine: 
 
 import json  # noqa: E402
 
-from duckdb.polars_io import _strip_dynamic_predicates  # noqa: E402
+from haybarn.polars_io import _strip_dynamic_predicates  # noqa: E402
 
 _DYN = {"Display": {"inputs": [{"Column": "x"}], "fmt_str": "dynamic_pred: abc-123"}}
 

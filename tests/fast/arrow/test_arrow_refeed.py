@@ -29,7 +29,7 @@ import gc
 
 import pytest
 
-import duckdb
+import haybarn as duckdb
 
 pa = pytest.importorskip("pyarrow")
 
