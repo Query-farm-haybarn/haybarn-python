@@ -1,3 +1,11 @@
+# NOT IN USE — kept for reference only.
+#
+# This workflow is inherited from the upstream duckdb/duckdb-python release
+# plumbing and is NOT what publishes Haybarn wheels. The active publisher is
+# .github/workflows/haybarn-python.yml. Its PyPI job is additionally gated to
+# the upstream repository owner so a manual dispatch on the fork can never
+# upload anything.
+
 # Called by DuckDB core when its release artifacts are ready. On main that is
 # Main.yml -> duckdb-workflow-trigger (core_ready), which sends duckdb-version.
 # On release branches it is still InvokeCI -> NotifyExternalRepositories, which
@@ -385,6 +393,8 @@ jobs:
     name: Publish Artifacts to PyPI
     runs-on: ubuntu-latest
     needs: [workflow_state, build_sdist, build_wheels]
+    # Haybarn: never publish from the fork; see the header.
+    if: ${{ github.repository_owner == 'duckdb' }}
     environment:
       name: ${{ needs.workflow_state.outputs.ci_env }}
     permissions:

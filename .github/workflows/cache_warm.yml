@@ -12,22 +12,9 @@ run-name: Warm the build caches on ${{ github.ref_name }}
 # saves under, because the pattern also matches names like vendoring-v2.0-x.
 # Keep this file identical across the branches that have assert_test.yml.
 on:
-  push:
-    branches:
-      - main
-      - v*.*-*
-    paths:
-      - 'external/duckdb'
-      - 'src/**'
-      - 'cmake/**'
-      - 'CMakeLists.txt'
-      - 'pyproject.toml'
-      - '.pre-commit-config.yaml'
-      - '.github/workflows/cache_warm.yml'
-      - '.github/workflows/code_quality.yml'
-      - '.github/workflows/packaging_wheels.yml'
-      - '.github/workflows/assert_test.yml'
-      - '.github/actions/**'
+  # Haybarn: upstream auto-triggers removed so this workflow
+  # does not run on the fork. Still runnable manually if needed.
+  workflow_dispatch:
 
 # Runs are queued, not cancelled: the ccache action saves in its post step even
 # after a cancel, and with evict-old-files the newest entry would then hold only
