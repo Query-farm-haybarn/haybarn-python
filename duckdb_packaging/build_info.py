@@ -144,11 +144,15 @@ def duckdb_submodule_path() -> Path:
         if cur_module_reponame is not None and cur_module_path is not None:
             modules[cur_module_reponame] = cur_module_path
 
-    if "duckdb" not in modules:
-        msg = "DuckDB submodule missing"
+    # Haybarn: this dict is keyed by the submodule URL's repo basename. Haybarn's
+    # external/duckdb submodule points at Query-farm-haybarn/haybarn(.git), so the
+    # key is "haybarn"; an upstream DuckDB checkout ("duckdb") is still accepted.
+    reponame = next((name for name in ("haybarn", "duckdb") if name in modules), None)
+    if reponame is None:
+        msg = "Haybarn (DuckDB engine) submodule missing"
         raise RuntimeError(msg)
 
-    duckdb_path = modules["duckdb"]
+    duckdb_path = modules[reponame]
     status = subprocess.run(
         ["git", "submodule", "status", duckdb_path],
         capture_output=True,
