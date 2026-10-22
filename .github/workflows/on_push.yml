@@ -6,21 +6,9 @@ name: Tests on push
 # ccache action saves on every ref outside duckdb/duckdb-python). Pull requests
 # into upstream run the complete gate in on_pr.yml. Coverage runs on dispatch.
 on:
-  push:
-    branches-ignore:
-      - main
-      - v*.*-*
-      - gh-readonly-queue/**
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-      - '.editorconfig'
-      - 'scripts/**'
-      - '.github/**'
-      - '!.github/workflows/on_push.yml'
-      - '!.github/workflows/assert_test.yml'
-      - '!.github/workflows/code_quality.yml'
-      - '!.github/actions/**'
+  # Haybarn: upstream auto-triggers removed so this workflow
+  # does not run on the fork. Still runnable manually if needed.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
