@@ -166,6 +166,13 @@ target_include_directories(
 # __declspec(dllimport) on Windows, producing unresolvable __imp_* references at
 # link time. No-op on non-Windows.
 target_compile_definitions(_duckdb_dependencies INTERFACE DUCKDB_STATIC_BUILD)
+# Haybarn: a nanobind domain of its own. nanobind shares one type registry
+# between all extension modules of the same domain and ABI in an interpreter,
+# so without it importing both `haybarn` and a genuine `duckdb` aborts on the
+# duplicate binding types ("refusing to add duplicate key ... ExplainType").
+# NB_MODULE reads it, and it lives in src/, so it goes on the interface every
+# binding object consumes rather than on nanobind_add_module(NB_DOMAIN).
+target_compile_definitions(_duckdb_dependencies INTERFACE NB_DOMAIN=haybarn)
 
 foreach(flag IN LISTS DUCKDB_PY_ARCHITECTURE_FLAGS)
   target_compile_options(_duckdb_dependencies
