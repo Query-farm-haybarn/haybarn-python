@@ -83,8 +83,7 @@ jobs:
           - { os: ubuntu-24.04,     arch: x86_64,     cibw_system: manylinux }
           - { os: ubuntu-24.04-arm, arch: aarch64,    cibw_system: manylinux }
           - { os: macos-15,         arch: arm64,      cibw_system: macosx }
-          - { os: macos-15,         arch: universal2, cibw_system: macosx }
-          - { os: macos-15-intel,   arch: x86_64,     cibw_system: macosx }
+          # Haybarn: macOS ships arm64 only (no x86_64 or universal2 wheels).
         # Single value dimension, only here so the exclude below can key on it.
         # Safe in this job: the exclude can never empty the matrix.
         minimal:
@@ -158,8 +157,7 @@ jobs:
           - { os: ubuntu-24.04,     arch: x86_64,     cibw_system: manylinux }
           - { os: ubuntu-24.04-arm, arch: aarch64,    cibw_system: manylinux }
           - { os: macos-15,         arch: arm64,      cibw_system: macosx }
-          - { os: macos-15,         arch: universal2, cibw_system: macosx }
-          - { os: macos-15-intel,   arch: x86_64,     cibw_system: macosx }
+          # Haybarn: macOS ships arm64 only (no x86_64 or universal2 wheels).
     runs-on: ${{ matrix.platform.os }}
     steps:
       - name: Checkout DuckDB Python
@@ -196,7 +194,7 @@ jobs:
           - { os: ubuntu-24.04,     arch: x86_64,     cibw_system: manylinux }
           - { os: ubuntu-24.04-arm, arch: aarch64,    cibw_system: manylinux }
           - { os: macos-15,         arch: arm64,      cibw_system: macosx }
-          - { os: macos-15-intel,   arch: x86_64,     cibw_system: macosx }
+          # Haybarn: macOS ships arm64 only (no x86_64 or universal2 wheels).
         # Single value dimension so the excludes can key on it. In minimal mode Windows and macOS test only the
         # oldest and newest interpreter; the excluded middle versions are line isolated like the python list above.
         # The excludes can never empty the matrix: Linux and the two boundary versions always remain.
@@ -233,8 +231,8 @@ jobs:
           version: "0.12.23"
           enable-cache: false
 
-      # The tests run from a copy, like cibuildwheel's, so that the checkout's own duckdb package directory is not
-      # what `import duckdb` finds. The copy lives in the interpreter's temp directory, also like cibuildwheel's:
+      # The tests run from a copy, like cibuildwheel's, so that the checkout's own haybarn package directory is not
+      # what `import haybarn` finds. The copy lives in the interpreter's temp directory, also like cibuildwheel's:
       # on Windows the checkout is on D: and the temp directory on C:, and test_arrow_fs_wrapper builds a
       # local://C:/... URL whose drive letter fsspec takes for a host, so pyarrow resolves the rest against the
       # current drive and only finds the file when the test runs from C:.
@@ -247,8 +245,8 @@ jobs:
           uv pip install --python .venv-wheel -r pylock.toml
           uv pip install --python .venv-wheel wheelhouse/*.whl
           venv="$PWD/.venv-wheel"
-          testrun=$(uv run --no-project --python "$venv" python -c 'import tempfile; print(tempfile.mkdtemp(prefix="duckdb-testrun-"))')
+          testrun=$(uv run --no-project --python "$venv" python -c 'import tempfile; print(tempfile.mkdtemp(prefix="haybarn-testrun-"))')
           cp -r tests pyproject.toml "$testrun"
           cd "$testrun"
-          uv run --no-project --python "$venv" python -c "import duckdb, sys, os; print(duckdb.__version__, sys.version, os.getcwd())"
+          uv run --no-project --python "$venv" python -c "import haybarn, sys, os; print(haybarn.__version__, sys.version, os.getcwd())"
           uv run --no-project --python "$venv" pytest --confcutdir=. --rootdir . -c pyproject.toml ${{ inputs.testsuite == 'fast' && './tests/fast' || './tests' }}

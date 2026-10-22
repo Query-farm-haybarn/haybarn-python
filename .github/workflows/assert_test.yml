@@ -79,18 +79,18 @@ jobs:
         run: |
           set -eo pipefail
           uv sync --only-group build --no-install-project -p 3.12
-          uv sync --no-build-isolation-package duckdb --reinstall -p 3.12
+          uv sync --no-build-isolation-package haybarn --reinstall -p 3.12
 
       - name: Check the build is the full-API build with assertions
         run: |
           set -eo pipefail
           grep -q 'CMAKE_BUILD_TYPE:STRING=Release' build/debug/CMakeCache.txt
           grep -Eq 'FORCE_ASSERT:BOOL=(1|ON|TRUE)' build/debug/CMakeCache.txt
-          # The module file name tells the API: a stable ABI build is named _duckdb.abi3.so.
+          # The module file name tells the API: a stable ABI build is named _haybarn.abi3.so.
           uv run --no-sync python - <<'EOF'
-          import _duckdb
-          print(_duckdb.__file__)
-          assert "abi3" not in _duckdb.__file__, "expected a full-API module, got " + _duckdb.__file__
+          import _haybarn
+          print(_haybarn.__file__)
+          assert "abi3" not in _haybarn.__file__, "expected a full-API module, got " + _haybarn.__file__
           EOF
 
       - name: Run the tests

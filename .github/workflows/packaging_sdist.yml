@@ -84,7 +84,7 @@ jobs:
         run: |
           cd ${{ runner.temp }}
           uv venv
-          uv pip install ${{ github.workspace }}/dist/duckdb-*.tar.gz
+          uv pip install ${{ github.workspace }}/dist/haybarn-*.tar.gz
 
       - name: Test sdist
         if: ${{ inputs.testsuite != 'none' }}
@@ -114,10 +114,10 @@ jobs:
           expected_package_commit=$(git -C ${{ github.workspace }} rev-parse HEAD)
           expected_duckdb_commit=$(git -C ${{ github.workspace }}/external/duckdb rev-parse HEAD)
           cd ${{ runner.temp }}
-          pkg_version=$( .venv/bin/python -c 'import duckdb; print(duckdb.__version__)' )
-          duckdb_version=$( .venv/bin/python -c 'import duckdb; print(duckdb.__duckdb_version__)' )
-          package_commit=$( .venv/bin/python -c 'import duckdb; print(duckdb.build_info()["package_commit"])' )
-          duckdb_commit=$( .venv/bin/python -c 'import duckdb; print(duckdb.build_info()["duckdb_commit"])' )
+          pkg_version=$( .venv/bin/python -c 'import haybarn; print(haybarn.__version__)' )
+          duckdb_version=$( .venv/bin/python -c 'import haybarn; print(haybarn.__duckdb_version__)' )
+          package_commit=$( .venv/bin/python -c 'import haybarn; print(haybarn.build_info()["package_commit"])' )
+          duckdb_commit=$( .venv/bin/python -c 'import haybarn; print(haybarn.build_info()["duckdb_commit"])' )
           echo "package version: '${pkg_version}' at '${package_commit}'"
           echo "duckdb version:  '${duckdb_version}' at '${duckdb_commit}'"
 

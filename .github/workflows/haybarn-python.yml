@@ -1,0 +1,168 @@
+# Haybarn: builds, tests and publishes the `haybarn` Python package (wheels +
+# sdist) for the 2.0 line.
+#
+# The build and test jobs are upstream's reusable packaging workflows
+# (packaging_wheels.yml, packaging_sdist.yml), which build one stable ABI wheel
+# (cp312, serving CPython 3.12 and up) plus a cp311 wheel per platform and run
+# the test suite against every interpreter each wheel serves. Only this file
+# decides versions and publishing.
+#
+# The DuckDB engine is built from the `external/duckdb` submodule, which points
+# at the Haybarn core fork (Query-farm-haybarn/haybarn) — so the wheels embed
+# the Haybarn build of DuckDB (Haybarn extension trust root, etc.).
+#
+# Publishing happens ONLY for a pushed (or dispatched) `haybarn-v2.*` tag. A
+# push to the haybarn-2.0 branch builds and tests a dev version
+# (<release_version>.dev<yymmddhhmm>) and never reaches the publish job.
+name: Haybarn Python
+
+on:
+  push:
+    branches:
+      - haybarn-2.0
+    tags:
+      - 'haybarn-v2.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      testsuite:
+        type: choice
+        description: Testsuite to run against the wheels (none, fast, all)
+        default: all
+        options:
+          - none
+          - fast
+          - all
+      publish:
+        description: >-
+          Where to publish: "pypi" (default), "testpypi", or "none". Only honoured
+          when the workflow runs on a haybarn-v2.* tag; a branch never publishes.
+        type: string
+        default: 'pypi'
+
+concurrency:
+  group: haybarn-python-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The version the engine is built as: the upstream DuckDB release the Haybarn
+  # engine corresponds to. It governs storage and extension compatibility
+  # (extensions install from core/<this version>/), so it stays the bare
+  # upstream version for every Haybarn rcN.
+  HAYBARN_DUCKDB_VERSION: v2.0.0
+
+jobs:
+  version:
+    name: Derive Haybarn version
+    runs-on: ubuntu-24.04
+    outputs:
+      set-version: ${{ steps.derive.outputs.set_version }}
+      duckdb-version: ${{ steps.derive.outputs.duckdb_version }}
+      publish: ${{ steps.derive.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: derive
+        env:
+          PUBLISH_INPUT: ${{ inputs.publish }}
+        # On a haybarn-v2.* tag the package version is the tag minus its
+        # `haybarn-` prefix (haybarn-v2.0.0-rc4 -> v2.0.0-rc4 -> 2.0.0rc4), which
+        # the build backend requires to equal [tool.duckdb_packaging]
+        # release_version, and the engine submodule must sit exactly on the
+        # engine tag of the same name. Anything else is a dev build of
+        # release_version and never publishes.
+        run: |
+          set -euo pipefail
+          if [[ ! "${HAYBARN_DUCKDB_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::HAYBARN_DUCKDB_VERSION must be a bare upstream version (vX.Y.Z), got ${HAYBARN_DUCKDB_VERSION}"
+            exit 1
+          fi
+          set_version=""
+          publish="none"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == haybarn-v2.* ]]; then
+            set_version="${GITHUB_REF_NAME#haybarn-}"
+            declared=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["duckdb_packaging"]["release_version"])')
+            forced=$(PYTHONPATH=. python3 -c 'import sys; from duckdb_packaging._versioning import git_tag_to_pep440; print(git_tag_to_pep440(sys.argv[1]))' "${set_version}")
+            if [[ "${forced}" != "${declared}" ]]; then
+              echo "::error::Tag ${GITHUB_REF_NAME} resolves to ${forced}, but pyproject.toml declares release_version = ${declared}"
+              exit 1
+            fi
+            pinned=$(git ls-tree HEAD external/duckdb | awk '{print $3}')
+            engine=$(git ls-remote https://github.com/Query-farm-haybarn/haybarn.git "refs/tags/${GITHUB_REF_NAME}^{}" | awk '{print $1}')
+            if [[ "${pinned}" != "${engine}" ]]; then
+              echo "::error::external/duckdb is at ${pinned}, but the engine tag ${GITHUB_REF_NAME} is at '${engine}'"
+              exit 1
+            fi
+            if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+              publish="pypi"
+            else
+              publish="${PUBLISH_INPUT:-pypi}"
+            fi
+            case "${publish}" in pypi|testpypi|none) ;; *)
+              echo "::error::publish must be pypi, testpypi or none, got ${publish}"; exit 1;;
+            esac
+          fi
+          {
+            echo "set_version=${set_version}"
+            echo "duckdb_version=${HAYBARN_DUCKDB_VERSION}"
+            echo "publish=${publish}"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::package version: ${set_version:-dev build}, engine: ${HAYBARN_DUCKDB_VERSION}, publish: ${publish}"
+
+  wheels:
+    name: Wheels
+    needs: version
+    uses: ./.github/workflows/packaging_wheels.yml
+    with:
+      minimal: false
+      testsuite: ${{ inputs.testsuite || 'all' }}
+      # The fork has no protected-branch cache writer (cache_warm is neutered),
+      # so the seed jobs save their ccaches on every run.
+      save-cache: true
+      set-version: ${{ needs.version.outputs.set-version }}
+      set-duckdb-version: ${{ needs.version.outputs.duckdb-version }}
+
+  sdist:
+    name: Sdist
+    needs: version
+    uses: ./.github/workflows/packaging_sdist.yml
+    with:
+      testsuite: fast
+      set-version: ${{ needs.version.outputs.set-version }}
+      set-duckdb-version: ${{ needs.version.outputs.duckdb-version }}
+
+  publish:
+    name: Publish to PyPI
+    needs: [version, wheels, sdist]
+    # Double gate: the version job only yields a destination for a haybarn-v2.*
+    # tag, and this condition re-checks the ref itself, so no branch run can
+    # ever reach the upload.
+    if: >-
+      ${{ needs.version.outputs.publish != 'none'
+          && github.ref_type == 'tag'
+          && startsWith(github.ref_name, 'haybarn-v2.') }}
+    runs-on: ubuntu-24.04
+    # PyPI Trusted Publishing (OIDC) — no PYPI_API_TOKEN secret needed. Requires
+    # a registered publisher on (Test)PyPI for owner Query-farm-haybarn, repo
+    # haybarn-python, workflow haybarn-python.yml.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: '{sdist,wheel}*'
+          path: dist
+          merge-multiple: true
+      - name: Check the distributions
+        run: |
+          set -euo pipefail
+          ls -l dist
+          for f in dist/*; do
+            if [[ "$(basename "$f")" != haybarn-* ]]; then
+              echo "::error::non-haybarn distribution in dist/: $f"
+              exit 1
+            fi
+          done
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          repository-url: ${{ needs.version.outputs.publish == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
