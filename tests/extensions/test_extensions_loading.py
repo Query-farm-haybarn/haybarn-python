@@ -83,7 +83,7 @@ def test_install_rejects_a_file_that_is_not_an_extension(tmp_path):
     not_an_extension.write_bytes(b"\0" * 2048)
 
     conn = haybarn.connect()
-    with pytest.raises(haybarn.IOException, match="not a DuckDB extension"):
+    with pytest.raises(haybarn.IOException, match="not a valid Haybarn extension"):
         conn.install_extension(not_an_extension.as_posix())
 
 
