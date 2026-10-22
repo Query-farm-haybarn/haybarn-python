@@ -301,7 +301,9 @@ nb::dict DuckDBPyResult::FetchNumpyInternal(bool chunked, idx_t vectors_per_chun
 }
 
 static void ReplaceDFColumn(PandasDataFrame &df, const char *col_name, idx_t idx, const nb::handle &new_value) {
-	df.attr("drop")("columns"_a = col_name, "inplace"_a = true);
+	// Haybarn: `del df[col]` instead of drop(columns=..., inplace=True); pandas 3.1 deprecates `inplace` with a
+	// Pandas4Warning, which every timestamptz/date conversion to a DataFrame then raised.
+	df.attr("__delitem__")(col_name);
 	df.attr("insert")(idx, col_name, new_value, "allow_duplicates"_a = false);
 }
 
