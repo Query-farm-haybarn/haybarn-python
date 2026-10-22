@@ -1,7 +1,7 @@
 """Python Arrow objects read through the Arrow scan: streams, release, projection, cardinality, types and filters.
 
 The tests read through con.register, the replacement scan and con.execute, and through con._register_arrow_source for
-the sources a test defines. Nothing imports duckdb._sources at module level.
+the sources a test defines. Nothing imports haybarn._sources at module level.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import _pushdown_helpers
 import pytest
 from _pushdown_helpers import eventually, scan_of
 
-import duckdb
+import haybarn
 
 pa = pytest.importorskip("pyarrow")
 pc = pytest.importorskip("pyarrow.compute")
@@ -28,7 +28,7 @@ CONSUMED = "has already been consumed and cannot be scanned again"
 
 @pytest.fixture
 def con():
-    with duckdb.connect() as connection:
+    with haybarn.connect() as connection:
         yield connection
 
 
@@ -79,19 +79,19 @@ def reader_over(table):
 
 def scan_source(mixin, *args, **kwargs):
     """An instance of `mixin` built on the private ArrowScanSource, which is imported only when a test runs."""
-    from duckdb._sources import ArrowScanSource
+    from haybarn._sources import ArrowScanSource
 
     return type(mixin.__name__, (mixin, ArrowScanSource), {})(*args, **kwargs)
 
 
 def fragments(predicates):
-    from duckdb._sources.nodes import fragment
+    from haybarn._sources.nodes import fragment
 
     return [fragment(predicate) for predicate in predicates]
 
 
 def greater_than(name, value, type_text):
-    from duckdb._sources.nodes import Binary, Col, Lit
+    from haybarn._sources.nodes import Binary, Col, Lit
 
     return Binary(">", Col((name,)), Lit(value, type_text))
 
@@ -174,8 +174,8 @@ class Filtering:
         return self.obj.schema.__arrow_c_schema__()
 
     def accepts(self, predicate) -> bool:
-        from duckdb._sources.nodes import Untranslatable
-        from duckdb._sources.to_arrow import to_arrow
+        from haybarn._sources.nodes import Untranslatable
+        from haybarn._sources.to_arrow import to_arrow
 
         self.offered.extend(fragments([predicate]))
         try:
@@ -185,7 +185,7 @@ class Filtering:
         return True
 
     def stream(self, columns, filters) -> tuple[object, bool]:
-        from duckdb._sources.to_arrow import to_arrow
+        from haybarn._sources.to_arrow import to_arrow
 
         self.applied.append(fragments(filters))
         held = self.obj
@@ -212,13 +212,13 @@ class TestStreams:
     def test_a_reader_is_read_once(self, con, numbers):
         con.register("r", reader_over(numbers))
         assert rows(con, "SELECT count(*) FROM r") == [(10,)]
-        with pytest.raises(duckdb.InvalidInputException, match=CONSUMED):
+        with pytest.raises(haybarn.InvalidInputException, match=CONSUMED):
             rows(con, "SELECT count(*) FROM r")
 
     def test_a_capsule_is_read_once(self, con, numbers):
         con.register("s", numbers.__arrow_c_stream__())
         assert rows(con, "SELECT count(*) FROM s") == [(10,)]
-        with pytest.raises(duckdb.InvalidInputException, match=CONSUMED):
+        with pytest.raises(haybarn.InvalidInputException, match=CONSUMED):
             rows(con, "SELECT count(*) FROM s")
 
     def test_binding_and_explaining_do_not_consume_a_stream(self, con, numbers):
@@ -235,7 +235,7 @@ class TestStreams:
 
     def test_two_references_in_sql_fail_at_the_second_read(self, con, numbers):
         con.register("r", reader_over(numbers))
-        with pytest.raises(duckdb.InvalidInputException, match=CONSUMED):
+        with pytest.raises(haybarn.InvalidInputException, match=CONSUMED):
             rows(con, "SELECT count(*) FROM r a, r b")
 
     def test_a_cte_in_sql_reads_the_stream_once(self, con, numbers):
@@ -251,7 +251,7 @@ class TestStreams:
             raise ValueError(message)
 
         con.register("bad", pa.RecordBatchReader.from_batches(arrow_schema, batches()))
-        with pytest.raises(duckdb.InvalidInputException, match=r"registered as 'bad' failed: .*no more rows for you"):
+        with pytest.raises(haybarn.InvalidInputException, match=r"registered as 'bad' failed: .*no more rows for you"):
             rows(con, "SELECT sum(a) FROM bad")
 
     def test_a_stream_error_names_the_variable_or_no_name(self, con):
@@ -264,11 +264,11 @@ class TestStreams:
 
         bad = pa.RecordBatchReader.from_batches(arrow_schema, batches())  # noqa: F841
         with pytest.raises(
-            duckdb.InvalidInputException, match=r"reading the stream of the Python object 'bad' failed: .*no more rows"
+            haybarn.InvalidInputException, match=r"reading the stream of the Python object 'bad' failed: .*no more rows"
         ):
             con.execute("SELECT sum(a) FROM bad").fetchall()
         nameless = con.from_arrow(pa.RecordBatchReader.from_batches(arrow_schema, batches()))
-        with pytest.raises(duckdb.InvalidInputException, match=r"reading the Arrow source failed: .*no more rows"):
+        with pytest.raises(haybarn.InvalidInputException, match=r"reading the Arrow source failed: .*no more rows"):
             nameless.aggregate("sum(a)").fetchall()
 
     def test_a_python_error_in_the_stream_fails_the_query_under_four_threads(self, con):
@@ -282,7 +282,7 @@ class TestStreams:
             raise ValueError(message)
 
         con.register("bad", pa.RecordBatchReader.from_batches(arrow_schema, batches()))
-        with pytest.raises(duckdb.InvalidInputException, match=r"registered as 'bad' failed: .*no more rows for you"):
+        with pytest.raises(haybarn.InvalidInputException, match=r"registered as 'bad' failed: .*no more rows for you"):
             rows(con, "SELECT sum(a) FROM bad")
 
     def test_a_stream_read_by_four_threads_is_pulled_one_at_a_time(self, con):
@@ -331,7 +331,7 @@ class TestStreams:
     def test_a_released_stream_is_refused(self, con, numbers):
         capsule = numbers.__arrow_c_stream__()
         pa.RecordBatchReader._import_from_c_capsule(capsule).read_all()
-        with pytest.raises(duckdb.InvalidInputException, match="The ArrowArrayStream was already released"):
+        with pytest.raises(haybarn.InvalidInputException, match="The ArrowArrayStream was already released"):
             register_and_read(con, "s", capsule)
 
 
@@ -401,7 +401,7 @@ class TestConcurrency:
 
         con.register("flaky", Flaky())
         message = "exporting a stream from the object registered as 'flaky' failed: RuntimeError: not yet"
-        with pytest.raises(duckdb.InvalidInputException, match=message):
+        with pytest.raises(haybarn.InvalidInputException, match=message):
             rows(con, "SELECT count(*) FROM flaky")
         assert rows(con, "SELECT count(*) FROM flaky") == [(10,)]
 
@@ -428,14 +428,14 @@ class TestArrowRelease:
     def test_a_stream_that_fails_while_read_is_released(self, con):
         source = scan_source(Streaming, NUMBERS_SCHEMA, fail_at=1)
         con._register_arrow_source("t", source)
-        with pytest.raises(duckdb.InvalidInputException, match="boom in batch 1"):
+        with pytest.raises(haybarn.InvalidInputException, match="boom in batch 1"):
             rows(con, "SELECT * FROM t")
         assert eventually(source.all_released)
 
     def test_a_stream_refused_when_the_scan_opens_is_released(self, con):
         source = scan_source(Streaming, pa.schema([("m", pa.int64())]), declared=NUMBERS_SCHEMA)
         con._register_arrow_source("t", source)
-        with pytest.raises(duckdb.InvalidInputException, match="answered with column 'm' at position 0 where 'n'"):
+        with pytest.raises(haybarn.InvalidInputException, match="answered with column 'm' at position 0 where 'n'"):
             rows(con, "SELECT * FROM t")
         assert source.all_released()
 
@@ -460,11 +460,11 @@ class TestArrowRelease:
         # A source keeps its first schema for its whole life, so the second read wraps the same stream afresh.
         capsule = data.__arrow_c_stream__()
         con._register_arrow_source("s", scan_source(Kept, capsule, pa.schema([("wrong", pa.int64())])))
-        with pytest.raises(duckdb.InvalidInputException, match="answered with column 'n' at position 0 where 'wrong'"):
+        with pytest.raises(haybarn.InvalidInputException, match="answered with column 'n' at position 0 where 'wrong'"):
             rows(con, "SELECT * FROM s")
         con._register_arrow_source("s", scan_source(Kept, capsule, data.schema))
         assert rows(con, "SELECT * FROM s") == [(1,), (2,), (3,)]
-        with pytest.raises(duckdb.InvalidInputException, match=CONSUMED):
+        with pytest.raises(haybarn.InvalidInputException, match=CONSUMED):
             rows(con, "SELECT * FROM s")
 
     def test_a_stream_only_peeked_for_its_schema_is_released(self, con):
@@ -477,7 +477,7 @@ class TestArrowRelease:
 
     def test_a_schema_the_engine_cannot_import_releases_its_stream(self, con):
         source = scan_source(Streaming, pa.schema([("h", pa.float16())]), peeked=True)
-        with pytest.raises(duckdb.NotImplementedException, match="Unsupported Internal Arrow Type"):
+        with pytest.raises(haybarn.NotImplementedException, match="Unsupported Internal Arrow Type"):
             con._register_arrow_source("t", source)
         assert source.all_released()
 
@@ -494,7 +494,7 @@ class TestArrowRelease:
                 return arrow_schema, array
 
         con.register("t", HalfReleased())
-        with pytest.raises(duckdb.InvalidInputException, match="'arrow_array' capsule of the object registered as 't'"):
+        with pytest.raises(haybarn.InvalidInputException, match="'arrow_array' capsule of the object registered as 't'"):
             rows(con, "SELECT * FROM t")
         assert rows(con, "SELECT 42") == [(42,)]
 
@@ -505,7 +505,7 @@ class TestArrowRelease:
         before = pa.total_allocated_bytes()
         for _ in range(3):
             if refused:
-                with pytest.raises(duckdb.InvalidInputException, match="answered with column 'other'"):
+                with pytest.raises(haybarn.InvalidInputException, match="answered with column 'other'"):
                     rows(con, "SELECT * FROM t")
             else:
                 assert rows(con, "SELECT count(*), max(value) FROM t") == [(100_000, 100_000)]
@@ -515,24 +515,24 @@ class TestArrowRelease:
 
 class TestLifetimes:
     def test_an_object_serves_a_second_database_after_the_first_closes(self, numbers):
-        first = duckdb.connect()
+        first = haybarn.connect()
         first.register("kept", numbers)
         assert rows(first, "SELECT count(*) FROM kept") == [(10,)]
         first.close()
         gc.collect()
-        with duckdb.connect() as second:
+        with haybarn.connect() as second:
             second.register("kept", numbers)
             assert rows(second, "SELECT sum(n) FROM kept") == [(45,)]
 
     def test_registrations_do_not_survive_reopening_a_file(self, numbers, tmp_path):
         path = tmp_path / "db.duckdb"
-        with duckdb.connect(path) as first:
+        with haybarn.connect(path) as first:
             first.register("only_while_open", numbers)
             assert rows(first, "SELECT count(*) FROM only_while_open") == [(10,)]
             assert rows(first, "SELECT count(*) FROM duckdb_tables()") == [(0,)]
-        with duckdb.connect(path) as reopened:
+        with haybarn.connect(path) as reopened:
             assert rows(reopened, "SELECT count(*) FROM duckdb_tables()") == [(0,)]
-            with pytest.raises(duckdb.CatalogException):
+            with pytest.raises(haybarn.CatalogException):
                 rows(reopened, "SELECT * FROM only_while_open")
 
     def test_a_register_query_unregister_loop_leaks_nothing(self, con):
@@ -607,7 +607,7 @@ class TestProjection:
 
         con._register_arrow_source("t", scan_source(Broken, numbers))
         expected = "exporting a stream from the object registered as 't' failed: ValueError: no stream today"
-        with pytest.raises(duckdb.InvalidInputException, match=expected):
+        with pytest.raises(haybarn.InvalidInputException, match=expected):
             rows(con, "SELECT * FROM t")
 
     def test_a_source_answering_the_wrong_width_is_refused(self, con, numbers):
@@ -616,7 +616,7 @@ class TestProjection:
                 return self.obj.select([0]).__arrow_c_stream__(), False
 
         con._register_arrow_source("t", scan_source(Lying, numbers))
-        with pytest.raises(duckdb.InvalidInputException, match="answered with 1 columns where it declared 2"):
+        with pytest.raises(haybarn.InvalidInputException, match="answered with 1 columns where it declared 2"):
             rows(con, "SELECT s FROM t")
 
         class Short(Recording):
@@ -624,7 +624,7 @@ class TestProjection:
                 return self.obj.__arrow_c_stream__(), True
 
         con._register_arrow_source("t", scan_source(Short, numbers))
-        with pytest.raises(duckdb.InvalidInputException, match="answered with 2 columns where 1 were requested"):
+        with pytest.raises(haybarn.InvalidInputException, match="answered with 2 columns where 1 were requested"):
             rows(con, "SELECT s FROM t")
 
     def test_a_source_answering_in_another_order_is_refused(self, con):
@@ -644,7 +644,7 @@ class TestProjection:
                 return self.obj.select(sorted(columns)).__arrow_c_stream__(), True
 
         sorting = scan_source(Sorting, wide)  # noqa: F841
-        with pytest.raises(duckdb.InvalidInputException, match="answered with column 'n' at position 0 where 'x'"):
+        with pytest.raises(haybarn.InvalidInputException, match="answered with column 'n' at position 0 where 'x'"):
             con.execute("SELECT x, s, n FROM sorting WHERE x = 0").fetchall()
 
         class Swapping(Findable):
@@ -652,7 +652,7 @@ class TestProjection:
                 return self.obj.select([2, 1, 0]).__arrow_c_stream__(), False
 
         swapping = scan_source(Swapping, wide)  # noqa: F841
-        with pytest.raises(duckdb.InvalidInputException, match="answered with column 'x' at position 0 where 'n'"):
+        with pytest.raises(haybarn.InvalidInputException, match="answered with column 'x' at position 0 where 'n'"):
             con.execute("SELECT * FROM swapping").fetchall()
 
     def test_a_source_answering_another_type_is_refused(self, con, numbers):
@@ -662,7 +662,7 @@ class TestProjection:
                 return drifted.__arrow_c_stream__(), False
 
         con._register_arrow_source("t", scan_source(Drifting, numbers))
-        with pytest.raises(duckdb.InvalidInputException, match="'n'"):
+        with pytest.raises(haybarn.InvalidInputException, match="'n'"):
             rows(con, "SELECT * FROM t")
 
     def test_duplicate_names_project_by_position(self, con):
@@ -712,12 +712,12 @@ class TestCardinality:
                 raise RuntimeError(message)
 
         expected = "counting the rows of the object registered as 't' failed"
-        with pytest.raises(duckdb.InvalidInputException, match=expected):
+        with pytest.raises(haybarn.InvalidInputException, match=expected):
             con._register_arrow_source("t", scan_source(Failing, numbers))
         assert rows(con, "SELECT 42") == [(42,)]
 
     def test_a_length_that_is_not_a_row_count_is_not_trusted(self, con, numbers):
-        from duckdb._sources import adapt
+        from haybarn._sources import adapt
 
         class Mapping:
             def __init__(self) -> None:
@@ -811,7 +811,7 @@ class TestRowsAndTypes:
         assert rows(con, "SELECT * FROM empty") == []
 
     def test_a_table_without_columns_is_refused(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="must have at least one column"):
+        with pytest.raises(haybarn.InvalidInputException, match="must have at least one column"):
             register_and_read(con, "none", pa.table({}))
 
     def test_the_arrow_types_arrive_as_duckdb_types(self, con):
@@ -878,7 +878,7 @@ class TestRowsAndTypes:
         assert "PYTHON_ARROW_SCAN" in con.from_arrow(numbers).explain()
 
     def test_the_scan_function_cannot_be_called_from_sql(self, con):
-        with pytest.raises(duckdb.BinderException, match="python_arrow_scan"):
+        with pytest.raises(haybarn.BinderException, match="python_arrow_scan"):
             rows(con, "SELECT * FROM python_arrow_scan()")
 
 
@@ -953,7 +953,7 @@ class TestNamesAndShadowing:
 
     def test_a_schema_capsule_is_not_a_stream(self, con, numbers):
         expected = "Expected a 'arrow_array_stream' PyCapsule, got: arrow_schema"
-        with pytest.raises(duckdb.InvalidInputException, match=expected):
+        with pytest.raises(haybarn.InvalidInputException, match=expected):
             register_and_read(con, "wrong", numbers.schema.__arrow_c_schema__())
 
     def test_an_object_handing_back_the_wrong_capsule_is_refused(self, con, numbers):
@@ -962,7 +962,7 @@ class TestNamesAndShadowing:
                 return self.table.schema.__arrow_c_schema__()
 
         con.register("wrong", WrongKind(numbers))
-        with pytest.raises(duckdb.InvalidInputException, match="did not export an 'arrow_array_stream' capsule but"):
+        with pytest.raises(haybarn.InvalidInputException, match="did not export an 'arrow_array_stream' capsule but"):
             rows(con, "SELECT * FROM wrong")
 
 
@@ -1003,7 +1003,7 @@ class TestExtensionTypes:
             metadata={"ARROW:extension:name": "arrow.opaque", "ARROW:extension:metadata": "not json"},
         )
         malformed = pa.table([pa.array([b"\x00" * 16], pa.binary(16))], schema=pa.schema([field]))
-        with pytest.raises(duckdb.Error, match="Failed to parse JSON string"):
+        with pytest.raises(haybarn.Error, match="Failed to parse JSON string"):
             register_and_read(con, "ext", malformed)
         assert rows(con, "SELECT 1") == [(1,)]
 
@@ -1057,16 +1057,16 @@ class TestTemporalAndBinaryTypes:
     def test_a_coarse_timestamp_beyond_microseconds_is_unrepresentable_not_wrapped(self, con):
         far = pa.table({"s": pa.array([2**62], pa.timestamp("s")), "ms": pa.array([2**62], pa.timestamp("ms"))})
         con.register("far", far)
-        with pytest.raises(duckdb.ConversionException):
+        with pytest.raises(haybarn.ConversionException):
             rows(con, "SELECT s FROM far")
-        with pytest.raises(duckdb.ConversionException):
+        with pytest.raises(haybarn.ConversionException):
             rows(con, "SELECT ms FROM far")
 
     @pytest.mark.parametrize("unit", ["s", "ms"])
     @pytest.mark.parametrize("target", ["VARCHAR", "TIMESTAMPTZ"])
     @pytest.mark.xfail(
         strict=True,
-        raises=duckdb.InternalException,
+        raises=haybarn.InternalException,
         reason="the engine's cast of a coarse timestamp beyond microseconds throws an internal error",
     )
     def test_a_coarse_timestamp_beyond_microseconds_try_casts_to_null(self, con, unit, target):
@@ -1076,7 +1076,7 @@ class TestTemporalAndBinaryTypes:
 
     @pytest.mark.xfail(
         strict=True,
-        raises=duckdb.InternalException,
+        raises=haybarn.InternalException,
         reason="the engine's text form of a timestamp before its date range throws an internal error",
     )
     def test_a_timestamp_before_the_date_range_try_casts_to_null(self, con):
@@ -1117,7 +1117,7 @@ class TestTemporalAndBinaryTypes:
 
     def test_a_duration_beyond_microseconds_is_a_conversion_error(self, con):
         con.register("spans", pa.table({"s": pa.array([2**62], pa.duration("s"))}))
-        with pytest.raises(duckdb.ConversionException, match="Could not convert Interval to Microsecond"):
+        with pytest.raises(haybarn.ConversionException, match="Could not convert Interval to Microsecond"):
             rows(con, "SELECT * FROM spans")
 
     def test_binary_and_date_variants(self, con):
@@ -1140,14 +1140,14 @@ class TestUnsupportedAndUnusualSchemas:
 
     def test_decimal256_is_refused(self, con):
         wide = pa.table({"d": pa.array([decimal.Decimal("1.5")], pa.decimal256(12, 4))})
-        with pytest.raises(duckdb.NotImplementedException, match="Decimal"):
+        with pytest.raises(haybarn.NotImplementedException, match="Decimal"):
             register_and_read(con, "wide", wide)
 
     def test_a_dense_union_is_refused(self, con):
         union = pa.UnionArray.from_dense(
             pa.array([0, 1], pa.int8()), pa.array([0, 0], pa.int32()), [pa.array([1]), pa.array(["x"])]
         )
-        with pytest.raises(duckdb.NotImplementedException, match="Union"):
+        with pytest.raises(haybarn.NotImplementedException, match="Union"):
             register_and_read(con, "dense", pa.table({"u": union}))
 
     def test_a_sparse_union_of_struct_arrives(self, con):
@@ -1259,7 +1259,7 @@ class TestFilters:
                 raise RuntimeError(message)
 
         con._register_arrow_source("t", scan_source(Broken, numbers))
-        with pytest.raises(duckdb.InvalidInputException, match="offering a filter to the source registered as 't'"):
+        with pytest.raises(haybarn.InvalidInputException, match="offering a filter to the source registered as 't'"):
             rows(con, "SELECT s FROM t WHERE n > 7")
         assert rows(con, "SELECT count(*) FROM t") == [(10,)]
 
@@ -1270,7 +1270,7 @@ class TestFilters:
         assert source.applied == [['("n" IN (3, 4))']]
 
     def test_a_nameless_column_is_offered_by_its_arrow_name(self, con):
-        from duckdb._sources.nodes import Binary, Col
+        from haybarn._sources.nodes import Binary, Col
 
         class NotingArray:
             def __init__(self, array) -> None:
@@ -1358,7 +1358,7 @@ class TestFilters:
         assert source.offered == ["(\"d\" >= DATE '9999-12-31')"]
 
     def test_a_stream_is_never_asked(self, con, numbers):
-        from duckdb._sources import adapt
+        from haybarn._sources import adapt
 
         source = adapt(reader_over(numbers))
         assert source.one_shot

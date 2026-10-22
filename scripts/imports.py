@@ -116,11 +116,11 @@ polars.lit
 polars.Series
 polars.Decimal
 
-import duckdb
-import duckdb.filesystem
+import haybarn
+import haybarn.filesystem
 
-duckdb.filesystem.ModifiedMemoryFileSystem
-duckdb.Value
+haybarn.filesystem.ModifiedMemoryFileSystem
+haybarn.Value
 
 import pytz
 
@@ -147,6 +147,6 @@ import collections.abc
 collections.abc.Iterable
 collections.abc.Mapping
 
-import duckdb.polars_io
+import haybarn.polars_io
 
-duckdb.polars_io.duckdb_source
+haybarn.polars_io.duckdb_source

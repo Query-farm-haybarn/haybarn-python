@@ -21,14 +21,14 @@ rather than directly. These checks are backend-agnostic (pybind11 or nanobind).
 
 import pytest
 
-import duckdb
+import haybarn
 import numpy as np
 import pandas as pd
 
 
 @pytest.fixture
 def con():
-    return duckdb.connect()
+    return haybarn.connect()
 
 
 class TestNumpyArrayResize:

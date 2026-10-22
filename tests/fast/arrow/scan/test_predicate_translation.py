@@ -1,6 +1,6 @@
 """What the predicate walker hands a source for each predicate the optimizer offers an Arrow scan.
 
-`_duckdb._translate_predicate` plans the predicate over a temporary table through the real optimizer and records,
+`_haybarn._translate_predicate` plans the predicate over a temporary table through the real optimizer and records,
 for every predicate the optimizer offers the scan, the engine's text for it and the node the walker built, or None
 where the walker refused it and the engine keeps filtering above the scan.
 """
@@ -13,11 +13,11 @@ import subprocess
 import sys
 from typing import ClassVar
 
-import _duckdb
+import _haybarn
 import pytest
 
-import duckdb
-from duckdb._sources.nodes import Binary, Col, In, Lit, Postfix, Unary
+import haybarn
+from haybarn._sources.nodes import Binary, Col, In, Lit, Postfix, Unary
 
 REFUSED = None
 
@@ -56,8 +56,8 @@ COLUMNS = {
 
 
 @pytest.fixture
-def con() -> duckdb.DuckDBPyConnection:
-    connection = duckdb.connect()
+def con() -> haybarn.DuckDBPyConnection:
+    connection = haybarn.connect()
     # A zoned constant renders in the session time zone, so the pinned texts need one zone on every runner.
     connection.execute("SET TimeZone = 'UTC'")
     yield connection
@@ -67,7 +67,7 @@ def con() -> duckdb.DuckDBPyConnection:
 def translate(con, predicate, columns=COLUMNS, schema=None, select="*"):
     if schema is not None:
         columns = None
-    return _duckdb._translate_predicate(con, predicate, columns, schema, select)
+    return _haybarn._translate_predicate(con, predicate, columns, schema, select)
 
 
 def offered(con, predicate, columns=COLUMNS, schema=None, select="*"):
@@ -519,7 +519,7 @@ class TestPortedFromNeoFilters:
             "zoned": "TIMESTAMPTZ",
             "tags": "VARCHAR[]",
         }
-        entries = _duckdb._translate_predicate(
+        entries = _haybarn._translate_predicate(
             con,
             "money > 1.50 AND raw = '\\x61'::BLOB AND clock < TIME '04:00:00' "
             "AND coarse >= '2024-05-06 07:08:09.123'::TIMESTAMP_MS AND zoned > TIMESTAMPTZ '2024-05-06 00:00:00+00' "
@@ -699,11 +699,11 @@ CHILD_TIMEOUT = 60
 
 REENTRANT_SCHEMA = """
 import json
-import _duckdb
-import duckdb
+import _haybarn
+import haybarn
 import pyarrow as pa
 
-con = duckdb.connect()
+con = haybarn.connect()
 
 
 class Reentrant:
@@ -713,11 +713,11 @@ class Reentrant:
 
 
 try:
-    _duckdb._translate_predicate(con, "n > 1", None, Reentrant())
+    _haybarn._translate_predicate(con, "n > 1", None, Reentrant())
     outcome = "no error"
 except Exception as error:
     outcome = str(error)
-other = duckdb.connect()
+other = haybarn.connect()
 
 
 class UsesAnotherConnection:
@@ -726,7 +726,7 @@ class UsesAnotherConnection:
         return pa.schema([pa.field("n", pa.int64())]).__arrow_c_schema__()
 
 
-entries = _duckdb._translate_predicate(con, "n > 1", None, UsesAnotherConnection())
+entries = _haybarn._translate_predicate(con, "n > 1", None, UsesAnotherConnection())
 print("outcome " + json.dumps([outcome, [node.fragment() for _, node in entries]]))
 """
 
@@ -734,7 +734,7 @@ print("outcome " + json.dumps([outcome, [node.fragment() for _, node in entries]
 class TestHook:
     def test_the_temporary_table_is_dropped(self, con):
         offered(con, "n > 1")
-        with pytest.raises(duckdb.ParserException):
+        with pytest.raises(haybarn.ParserException):
             offered(con, "n >")
         assert con.sql(
             "SELECT count(*) FROM duckdb_tables() WHERE table_name LIKE '__duckdb_predicate_probe%'"
@@ -755,18 +755,18 @@ class TestHook:
         assert con.sql("SELECT k FROM kept").fetchall() == [(1,)]
 
     def test_more_than_one_statement_is_refused(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="one expression"):
+        with pytest.raises(haybarn.InvalidInputException, match="one expression"):
             offered(con, "n > 1; SELECT 1")
 
     def test_a_subquery_is_refused(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="shape of the plan"):
+        with pytest.raises(haybarn.InvalidInputException, match="shape of the plan"):
             offered(con, "n IN (SELECT 1)")
 
     def test_either_columns_or_a_schema(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="either the columns or an Arrow schema"):
-            _duckdb._translate_predicate(con, "n > 1", None, None)
-        with pytest.raises(duckdb.InvalidInputException, match="either the columns or an Arrow schema"):
-            _duckdb._translate_predicate(con, "n > 1", {"n": "INTEGER"}, object())
+        with pytest.raises(haybarn.InvalidInputException, match="either the columns or an Arrow schema"):
+            _haybarn._translate_predicate(con, "n > 1", None, None)
+        with pytest.raises(haybarn.InvalidInputException, match="either the columns or an Arrow schema"):
+            _haybarn._translate_predicate(con, "n > 1", {"n": "INTEGER"}, object())
 
     def test_a_type_whose_text_uses_the_connection_is_refused(self, con):
         class Reentrant:
@@ -774,8 +774,8 @@ class TestHook:
                 con.sql("SELECT 42").fetchall()
                 return "INTEGER"
 
-        with pytest.raises(duckdb.Error, match="cannot use that query's connection"):
-            _duckdb._translate_predicate(con, "n > 1", {"n": Reentrant()})
+        with pytest.raises(haybarn.Error, match="cannot use that query's connection"):
+            _haybarn._translate_predicate(con, "n > 1", {"n": Reentrant()})
         assert offered(con, "n > 1", {"n": "INTEGER"}) == [("(n > 1)", '("n" > 1)')]
 
     def test_a_schema_that_uses_the_connection_is_refused_without_hanging(self):

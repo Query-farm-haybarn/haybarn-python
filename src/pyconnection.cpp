@@ -1687,7 +1687,7 @@ static nb::object ArrowSourcesPart(const unique_ptr<PyObjectHolder> &part) {
 	if (!part) {
 		// A program can outlive Cleanup; the package is then taken from sys.modules again, never imported anew.
 		auto modules = nb::borrow<nb::dict>(PyImport_GetModuleDict());
-		auto sources = PyDict_GetItemString(modules.ptr(), "duckdb._sources");
+		auto sources = PyDict_GetItemString(modules.ptr(), "haybarn._sources");
 		if (sources) {
 			DuckDBPyConnection::SetArrowSources(nb::borrow(sources));
 		}

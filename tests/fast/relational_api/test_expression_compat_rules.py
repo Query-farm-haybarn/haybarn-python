@@ -6,13 +6,13 @@ import re
 
 import pytest
 
-import duckdb
-from duckdb import CaseExpression, ColumnExpression, ConstantExpression, FunctionExpression
+import haybarn
+from haybarn import CaseExpression, ColumnExpression, ConstantExpression, FunctionExpression
 
 
 @pytest.fixture
 def con():
-    connection = duckdb.connect()
+    connection = haybarn.connect()
     connection.execute(
         "CREATE TABLE t AS SELECT * FROM (VALUES (1, '\\x00'::BLOB, 'p'), (2, '\\x01'::BLOB, 'q')) v(i, b, x)"
     )
@@ -106,25 +106,25 @@ class TestValueConstants:
     @pytest.mark.parametrize(
         ("value", "kind"),
         [
-            pytest.param(5, duckdb.sqltypes.TINYINT, id="tinyint"),
-            pytest.param("2026-10-18", duckdb.sqltypes.DATE, id="date"),
+            pytest.param(5, haybarn.sqltypes.TINYINT, id="tinyint"),
+            pytest.param("2026-10-18", haybarn.sqltypes.DATE, id="date"),
             pytest.param(
                 {"a": 1, "b": "x"},
-                duckdb.struct_type({"a": duckdb.sqltypes.BIGINT, "b": duckdb.sqltypes.VARCHAR}),
+                haybarn.struct_type({"a": haybarn.sqltypes.BIGINT, "b": haybarn.sqltypes.VARCHAR}),
                 id="struct",
             ),
         ],
     )
     def test_a_value_constant_stores_what_binding_the_value_stores(self, con, value, kind):
-        constant = ConstantExpression(duckdb.Value(value, kind)).alias("c")
+        constant = ConstantExpression(haybarn.Value(value, kind)).alias("c")
         rel = con.sql("SELECT 1 AS z").select(constant)
-        rows, description = described(con, "SELECT ? AS c", [duckdb.Value(value, kind)])
+        rows, description = described(con, "SELECT ? AS c", [haybarn.Value(value, kind)])
         assert [(name, str(k)) for name, k in zip(rel.columns, rel.types, strict=True)] == description
         assert rel.fetchall() == rows
 
 
 def unfinished_case():
-    return duckdb.when(duckdb.col("i") == 1).then(1)
+    return haybarn.when(haybarn.col("i") == 1).then(1)
 
 
 # The exact binary value of the float 0.1, 55 digits long, which is the ordinary way to meet a wide Decimal.
@@ -168,7 +168,7 @@ class TestAnUnfinishedCase:
     )
     def test_a_verb_given_it_raises_the_verb_argument_class_with_the_same_message(self, con, verb):
         # A verb refuses an argument it cannot take with InvalidInputException, as the shipping client did.
-        with pytest.raises(duckdb.InvalidInputException, match=UNFINISHED):
+        with pytest.raises(haybarn.InvalidInputException, match=UNFINISHED):
             verb(con.table("t"), unfinished_case())
 
     def test_a_finished_case_compares_as_an_expression(self, con):
@@ -241,11 +241,11 @@ class TestKeywordForms:
         assert con.sql("SELECT 1 AS z").select(ConstantExpression(value=5).alias("v")).fetchall() == [(5,)]
 
     def test_cast_takes_type(self, con):
-        rel = con.sql("SELECT 1 AS z").select(ColumnExpression("z").cast(type=duckdb.sqltypes.VARCHAR).alias("v"))
+        rel = con.sql("SELECT 1 AS z").select(ColumnExpression("z").cast(type=haybarn.sqltypes.VARCHAR).alias("v"))
         assert rel.fetchall() == [("1",)]
 
     def test_try_cast_takes_type(self, con):
-        rel = con.sql("SELECT 'x' AS z").select(ColumnExpression("z").try_cast(type=duckdb.sqltypes.INTEGER).alias("v"))
+        rel = con.sql("SELECT 'x' AS z").select(ColumnExpression("z").try_cast(type=haybarn.sqltypes.INTEGER).alias("v"))
         assert rel.fetchall() == [(None,)]
 
     def test_between_takes_lower_and_upper(self, con):
@@ -266,7 +266,7 @@ class TestConditionValues:
 
     def test_where_takes_a_value_condition(self, con):
         # .where() takes any value but a string, as when() and filter() do.
-        total = duckdb.col("i").sum().where(True).alias("s")
+        total = haybarn.col("i").sum().where(True).alias("s")
         assert "FILTER (WHERE TRUE)" in str(total)
         assert con.table("t").aggregate([total]).fetchall() == [(3,)]
 
@@ -365,15 +365,15 @@ class TestLiteralsFollowTheParameterPath:
         assert [str(kind) for kind in con.values([{1: "a"}]).types] == ["MAP(INTEGER, VARCHAR)"]
 
     def test_a_typed_memoryview_value(self, con):
-        value = duckdb.Value(memoryview(b"abc"), duckdb.sqltypes.BLOB)
+        value = haybarn.Value(memoryview(b"abc"), haybarn.sqltypes.BLOB)
         assert con.execute("SELECT ?", [value]).fetchall() == [(b"abc",)]
         assert con.values([value]).fetchall() == [(b"abc",)]
 
     def test_an_integer_past_the_string_limit_is_refused_as_a_parameter_is(self, con):
         value = 10**5000
-        with pytest.raises(duckdb.InvalidInputException, match="too large for 128-bit integer type"):
+        with pytest.raises(haybarn.InvalidInputException, match="too large for 128-bit integer type"):
             con.execute("SELECT ?", [value])
-        with pytest.raises(duckdb.InvalidInputException, match="too large for 128-bit integer type"):
+        with pytest.raises(haybarn.InvalidInputException, match="too large for 128-bit integer type"):
             con.values([value])
 
 
@@ -395,13 +395,13 @@ class TestIntegerLiteralTypes:
         assert self.typeof(con, value) == con.execute("SELECT typeof(?)", [value]).fetchall() == [(kind,)]
 
     def test_an_unsigned_sum_overflows_as_the_engine_says(self, con):
-        with pytest.raises(duckdb.OutOfRangeException, match="Overflow"):
+        with pytest.raises(haybarn.OutOfRangeException, match="Overflow"):
             con.sql("SELECT 1").project(ConstantExpression(2**63) + ConstantExpression(2**63)).fetchall()
 
     def test_a_value_past_int128_is_refused_as_a_parameter_is(self, con):
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             con.execute("SELECT ?", [2**128])
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             con.sql("SELECT 1").project(ConstantExpression(2**128)).fetchall()
 
 
@@ -410,7 +410,7 @@ class TestThePublicAnnotations:
         api = pytest.importorskip("mypy.api")
         snippet = tmp_path / "calls.py"
         snippet.write_text(
-            "from duckdb import CaseExpression, Expression, when\n\n"
+            "from haybarn import CaseExpression, Expression, when\n\n"
             'Expression("x")\n'
             "CaseExpression(True, 1)\n"
             "when(True)\n"
@@ -426,33 +426,33 @@ class TestRawTextInsideALambda:
 
     def test_a_variable_in_raw_text_binds(self, con):
         # The variable is interpolated before its final name is chosen, and the text still reads it.
-        incremented = duckdb.fn("list_transform", [1, 2], lambda x: duckdb.SQLExpression(f"{x} + 1"))
+        incremented = haybarn.fn("list_transform", [1, 2], lambda x: haybarn.SQLExpression(f"{x} + 1"))
         assert con.sql("SELECT 1").select(incremented).fetchall() == [([2, 3],)]
 
     def test_a_nested_lambda_with_a_column_in_raw_text_binds(self, con):
         # The inner variable and the column k both appear in the raw text of the inner lambda.
         con.execute("CREATE TABLE nested AS SELECT [[1, 2], [3]] AS xss, 10 AS k")
-        shifted = duckdb.fn(
+        shifted = haybarn.fn(
             "list_transform",
-            duckdb.col("xss"),
-            lambda xs: duckdb.fn("list_transform", xs, lambda x: duckdb.SQLExpression(f"{x} + k")),
+            haybarn.col("xss"),
+            lambda xs: haybarn.fn("list_transform", xs, lambda x: haybarn.SQLExpression(f"{x} + k")),
         )
         direct = "SELECT list_transform(xss, lambda xs: list_transform(xs, lambda x: x + k)) FROM nested"
         expected = con.execute(direct).fetchall()
         assert con.table("nested").select(shifted).fetchall() == expected == [([[11, 12], [13]],)]
 
     def test_an_aliased_lambda_variable_still_binds(self, con):
-        renamed = duckdb.lit([1, 2]).list().transform(lambda x: x.alias("item"))
+        renamed = haybarn.lit([1, 2]).list().transform(lambda x: x.alias("item"))
         assert con.sql("SELECT 1").project(renamed).fetchall() == [([1, 2],)]
 
     def test_an_aliased_lambda_variable_inside_a_function(self, con):
-        packed = duckdb.lit([1, 2]).list().transform(lambda x: duckdb.fn("struct_pack", x.alias("item")))
+        packed = haybarn.lit([1, 2]).list().transform(lambda x: haybarn.fn("struct_pack", x.alias("item")))
         assert con.sql("SELECT 1").project(packed).fetchall() == [([{"item": 1}, {"item": 2}],)]
 
     def test_a_lambda_variable_is_named_after_its_parameter(self, con):
-        rel = con.sql("SELECT 1").project(duckdb.lit([1, 2]).list().transform(lambda x: x + 1))
+        rel = con.sql("SELECT 1").project(haybarn.lit([1, 2]).list().transform(lambda x: x + 1))
         assert re.search(r"\bx_[0-9a-f]{6}\b", rel.sql_query())
 
     def test_two_parameters_differing_only_in_case_are_two_variables(self, con):
-        summed = duckdb.lit([10, 20]).list().transform(lambda x, X: x + X)
+        summed = haybarn.lit([10, 20]).list().transform(lambda x, X: x + X)
         assert con.sql("SELECT 1").project(summed).fetchall() == [([11, 22],)]

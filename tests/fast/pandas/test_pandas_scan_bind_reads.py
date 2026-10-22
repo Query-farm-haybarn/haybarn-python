@@ -15,7 +15,7 @@ from typing import Any, NamedTuple
 
 import pytest
 
-import duckdb
+import haybarn
 import numpy as np
 import pandas as pd
 
@@ -51,20 +51,20 @@ def _run_child(body):
         import numpy as np
         import pandas as pd
 
-        import duckdb
+        import haybarn
 
         if sys.platform != "win32":
             import resource
 
             resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
-        con = duckdb.connect()
+        con = haybarn.connect()
 
 
         def report(run):
             try:
                 outcome = {"rows": run()}
-            except duckdb.Error as error:
+            except haybarn.Error as error:
                 outcome = {"error": type(error).__name__, "message": str(error)}
             print("outcome " + json.dumps(outcome, default=repr))
         """
@@ -259,7 +259,7 @@ UNSUPPORTED_SOURCES = [
 @pytest.mark.parametrize("make_source", UNSUPPORTED_SOURCES)
 def test_registering_an_unsupported_dtype_fails(duckdb_cursor, make_source):
     source = make_source()
-    with pytest.raises(duckdb.NotImplementedException, match="not recognized"):
+    with pytest.raises(haybarn.NotImplementedException, match="not recognized"):
         duckdb_cursor.register("registered_source", source)
 
 
@@ -275,7 +275,7 @@ def test_registering_an_unsupported_dtype_fails(duckdb_cursor, make_source):
 )
 def test_unsupported_dtype_fails_even_when_unread(duckdb_cursor, make_source, sql):
     source = make_source()  # noqa: F841
-    with pytest.raises(duckdb.NotImplementedException, match="not recognized"):
+    with pytest.raises(haybarn.NotImplementedException, match="not recognized"):
         duckdb_cursor.execute(sql)
 
 
@@ -835,7 +835,7 @@ def test_count_star_ignores_unconvertible_column_zero(duckdb_cursor, path, sql, 
 @pytest.mark.parametrize("kind", ["frame", "dict"])
 def test_reading_the_unconvertible_column_still_fails(duckdb_cursor, path, kind):
     source = _unconvertible_first_column(kind)
-    with pytest.raises(duckdb.InvalidInputException, match="surrogate"):
+    with pytest.raises(haybarn.InvalidInputException, match="surrogate"):
         _execute(duckdb_cursor, source, path, "SELECT count(s) FROM {source}").fetchall()
 
 

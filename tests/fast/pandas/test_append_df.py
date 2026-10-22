@@ -7,14 +7,14 @@ from decimal import Decimal
 import pytest
 import pytz
 
-import duckdb
+import haybarn
 import numpy as np
 import pandas as pd
 
 
 class TestAppendDF:
     def test_df_to_table_append(self, duckdb_cursor):
-        conn = duckdb.connect()
+        conn = haybarn.connect()
         conn.execute("Create table integers (i integer)")
         df_in = pd.DataFrame(
             {
@@ -25,12 +25,12 @@ class TestAppendDF:
         assert conn.execute("select count(*) from integers").fetchone()[0] == 5
 
     def test_append_by_name(self):
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.execute("create table tbl (a integer, b bool, c varchar)")
         df_in = pd.DataFrame({"c": ["duck", "db"], "b": [False, True], "a": [4, 2]})
         # By default we append by position, causing the following exception:
         with pytest.raises(
-            duckdb.ConversionException, match="Conversion Error: Could not convert string 'duck' to INT32"
+            haybarn.ConversionException, match="Conversion Error: Could not convert string 'duck' to INT32"
         ):
             con.append("tbl", df_in)
 
@@ -40,7 +40,7 @@ class TestAppendDF:
         assert res == [(4, False, "duck"), (2, True, "db")]
 
     def test_append_by_name_quoted(self):
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.execute(
             """
             create table tbl ("needs to be quoted" integer, other varchar)
@@ -52,11 +52,11 @@ class TestAppendDF:
         assert res == [(1, None), (2, None), (3, None)]
 
     def test_append_by_name_no_exact_match(self):
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.execute("create table tbl (a integer, b bool)")
         df_in = pd.DataFrame({"c": ["a", "b"], "b": [True, False], "a": [42, 1337]})
         # Too many columns raises an error, because the columns cant be found in the targeted table
-        with pytest.raises(duckdb.BinderException, match='Table "tbl" does not have a column with name "c"'):
+        with pytest.raises(haybarn.BinderException, match='Table "tbl" does not have a column with name "c"'):
             con.append("tbl", df_in, by_name=True)
 
         df_in = pd.DataFrame({"b": [False, False, False]})
@@ -380,7 +380,7 @@ class TestAppendObjectColumnsToDeclaredTypes:
     def test_object_value_the_table_column_type_refuses(self, duckdb_cursor, target, column, match):
         duckdb_cursor.execute(f"CREATE TABLE t (a {target})")
         frame = pd.DataFrame({"a": column})
-        with pytest.raises(duckdb.ConversionException, match=match):
+        with pytest.raises(haybarn.ConversionException, match=match):
             duckdb_cursor.append("t", frame)
 
     @pytest.mark.parametrize(
@@ -496,7 +496,7 @@ class TestAppendObjectColumnsToDeclaredTypes:
     def test_column_count_mismatch_is_refused_by_the_insert(self, duckdb_cursor, table, columns):
         duckdb_cursor.execute(f"CREATE TABLE t ({table})")
         frame = pd.DataFrame({f"c{i}": _outside_the_sample(1, 2.5) for i in range(columns)})
-        with pytest.raises(duckdb.BinderException, match="values were supplied"):
+        with pytest.raises(haybarn.BinderException, match="values were supplied"):
             duckdb_cursor.append("t", frame)
 
 
@@ -588,7 +588,7 @@ class TestAppendMatchesTheAppender:
     def test_append_refuses_what_the_appender_refuses(self, duckdb_cursor, target, column):
         duckdb_cursor.execute(f"CREATE TABLE by_rows (a {target})")
         duckdb_cursor.execute(f"CREATE TABLE t (a {target})")
-        with pytest.raises(duckdb.Error) as refused:
+        with pytest.raises(haybarn.Error) as refused:
             _append_rows(duckdb_cursor, "by_rows", column)
         frame = pd.DataFrame({"a": column})
         with pytest.raises(type(refused.value)):

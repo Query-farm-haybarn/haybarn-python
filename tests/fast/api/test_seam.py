@@ -13,7 +13,7 @@ from typing import ClassVar
 
 import pytest
 
-import duckdb
+import haybarn
 
 np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
@@ -26,7 +26,7 @@ def type_names(types_list):
 
 @pytest.fixture
 def con():
-    connection = duckdb.connect()
+    connection = haybarn.connect()
     connection.execute("CREATE TABLE t (i INTEGER, s VARCHAR)")
     connection.execute("INSERT INTO t VALUES (1, 'a'), (2, 'b'), (3, NULL)")
     yield connection
@@ -51,8 +51,8 @@ def blocking_udf(con):
 
 @pytest.fixture
 def relation_class(monkeypatch):
-    """Stands in for duckdb._relation.DuckDBPyRelation, which the seam recognises by its module."""
-    module = types.ModuleType("duckdb._relation")
+    """Stands in for haybarn._relation.DuckDBPyRelation, which the seam recognises by its module."""
+    module = types.ModuleType("haybarn._relation")
 
     class DuckDBPyRelation:
         def __init__(self, con, sql, handles=(), registry_text=None, inputs=()) -> None:
@@ -76,7 +76,7 @@ def relation_class(monkeypatch):
             return found
 
     module.DuckDBPyRelation = DuckDBPyRelation
-    monkeypatch.setitem(sys.modules, "duckdb._relation", module)
+    monkeypatch.setitem(sys.modules, "haybarn._relation", module)
     return DuckDBPyRelation
 
 
@@ -85,7 +85,7 @@ class TestBind:
         names, types_list, params, return_type, deferred = con._bind("SELECT i, s, i + 1 AS j FROM t")
         assert names == ["i", "s", "j"]
         assert type_names(types_list) == ["INTEGER", "VARCHAR", "INTEGER"]
-        assert all(isinstance(t, duckdb.sqltypes.DuckDBPyType) for t in types_list)
+        assert all(isinstance(t, haybarn.sqltypes.DuckDBPyType) for t in types_list)
         assert params == []
         assert return_type == "query_result"
         assert deferred is False
@@ -154,15 +154,15 @@ class TestBind:
 
     @pytest.mark.parametrize(("sql", "count"), [("SELECT 1; SELECT 2", 2), ("", 0), ("/* nothing */", 0)])
     def test_exactly_one_statement(self, con, sql, count):
-        with pytest.raises(duckdb.InvalidInputException, match=f"exactly one SQL statement, found {count}"):
+        with pytest.raises(haybarn.InvalidInputException, match=f"exactly one SQL statement, found {count}"):
             con._bind(sql)
 
     @pytest.mark.parametrize(
         ("sql", "error"),
         [
-            ("SELECT * FROM missing", duckdb.CatalogException),
-            ("SELECT nope FROM t", duckdb.BinderException),
-            ("SELEC 1", duckdb.ParserException),
+            ("SELECT * FROM missing", haybarn.CatalogException),
+            ("SELECT nope FROM t", haybarn.BinderException),
+            ("SELEC 1", haybarn.ParserException),
         ],
     )
     def test_error_leaves_explicit_transaction_usable(self, con, sql, error):
@@ -209,7 +209,7 @@ class TestBind:
         worker = threading.Thread(target=lambda: out.append(con._submit("SELECT block(1)").fetchall()))
         worker.start()
         assert started.wait(30)
-        with pytest.raises(duckdb.ResourceInUseException, match="busy with another call"):
+        with pytest.raises(haybarn.ResourceInUseException, match="busy with another call"):
             con._bind("SELECT 1")
         release.set()
         worker.join()
@@ -221,7 +221,7 @@ class TestBind:
         def reenter(x):
             try:
                 con._bind("SELECT 1")
-            except duckdb.ResourceInUseException as error:
+            except haybarn.ResourceInUseException as error:
                 seen.append(str(error))
             return x
 
@@ -255,7 +255,7 @@ class TestBind:
     )
     def test_closed_connection(self, con, call):
         con.close()
-        with pytest.raises(duckdb.ConnectionException, match="Connection has already been closed"):
+        with pytest.raises(haybarn.ConnectionException, match="Connection has already been closed"):
             call(con)
 
     def test_with_type(self, con):
@@ -287,7 +287,7 @@ class TestSubmit:
 
     def test_stream_holds_the_connection_until_closed(self, con):
         result = con._submit("SELECT * FROM range(1000000)", None, "stream", 100)
-        with pytest.raises(duckdb.ResourceInUseException, match="open result"):
+        with pytest.raises(haybarn.ResourceInUseException, match="open result"):
             con._submit("SELECT 1")
         result.close()
         assert con._submit("SELECT 1").fetchall() == [(1,)]
@@ -305,34 +305,34 @@ class TestSubmit:
 
     @pytest.mark.parametrize("fmt", ["rows", "arrow", "stream"])
     def test_errors_raise_at_submit(self, con, fmt):
-        with pytest.raises(duckdb.CatalogException):
+        with pytest.raises(haybarn.CatalogException):
             con._submit("SELECT * FROM missing", None, fmt)
-        with pytest.raises(duckdb.ConversionException):
+        with pytest.raises(haybarn.ConversionException):
             con._submit("SELECT 'x'::INTEGER", None, fmt)
 
     def test_value_count_mismatch(self, con):
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             con._submit("SELECT ?, ?", [1])
 
     def test_values_must_be_list_or_dict(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="list or a dictionary"):
+        with pytest.raises(haybarn.InvalidInputException, match="list or a dictionary"):
             con._submit("SELECT ?", 5)
 
     def test_bad_format_and_batch_size(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="'rows', 'arrow' or 'stream'"):
+        with pytest.raises(haybarn.InvalidInputException, match="'rows', 'arrow' or 'stream'"):
             con._submit("SELECT 1", None, "chunks")
-        with pytest.raises(duckdb.InvalidInputException, match="larger than 0"):
+        with pytest.raises(haybarn.InvalidInputException, match="larger than 0"):
             con._submit("SELECT 1", None, "arrow", 0)
 
     def test_exactly_one_statement(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="found 2"):
+        with pytest.raises(haybarn.InvalidInputException, match="found 2"):
             con._submit("INSERT INTO t VALUES (5, 'e'); SELECT 1")
         assert con.execute("SELECT count(*) FROM t").fetchall() == [(3,)]
 
     def test_refused_beside_an_open_dbapi_result(self, con):
         con.execute("SELECT * FROM range(100000)")
         con.fetchone()
-        with pytest.raises(duckdb.ResourceInUseException, match=r"unfinished result from execute\(\)"):
+        with pytest.raises(haybarn.ResourceInUseException, match=r"unfinished result from execute\(\)"):
             con._submit("SELECT 1")
         assert con.fetchone() == (1,)
         con.abort()
@@ -347,7 +347,7 @@ class TestSubmit:
         worker.start()
         # the UDF can run only if the submit released the GIL
         assert started.wait(30)
-        with pytest.raises(duckdb.ResourceInUseException, match="busy with another call"):
+        with pytest.raises(haybarn.ResourceInUseException, match="busy with another call"):
             con._submit("SELECT 1")
         assert other.execute("SELECT 42").fetchall() == [(42,)]
         release.set()
@@ -356,9 +356,9 @@ class TestSubmit:
 
     def test_bind_error_in_explicit_transaction(self, con):
         con.execute("BEGIN")
-        with pytest.raises(duckdb.CatalogException):
+        with pytest.raises(haybarn.CatalogException):
             con._submit("SELECT * FROM missing")
-        with pytest.raises(duckdb.TransactionException):
+        with pytest.raises(haybarn.TransactionException):
             con._submit("SELECT 1")
         con.execute("ROLLBACK")
 
@@ -452,9 +452,9 @@ class TestTableKind:
 
     def test_an_ambiguous_lone_qualifier_raises_as_sql_does(self, catalog, tmp_path):
         catalog.execute(f"ATTACH '{tmp_path / 's.duckdb'}' AS s")
-        with pytest.raises(duckdb.BinderException, match="Ambiguous reference to catalog or schema"):
+        with pytest.raises(haybarn.BinderException, match="Ambiguous reference to catalog or schema"):
             catalog._table_kind(("s", "in_schema"))
-        with pytest.raises(duckdb.BinderException, match="Ambiguous reference to catalog or schema"):
+        with pytest.raises(haybarn.BinderException, match="Ambiguous reference to catalog or schema"):
             catalog.execute("SELECT * FROM s.in_schema")
 
     def test_the_search_path_applies(self, catalog):
@@ -487,10 +487,10 @@ class TestTableKind:
     @pytest.mark.parametrize(
         ("name", "error", "match"),
         [
-            (5, duckdb.InvalidInputException, "given as a string, or as a tuple"),
-            (None, duckdb.InvalidInputException, "given as a string, or as a tuple"),
-            ((), duckdb.InvalidInputException, "at least one part"),
-            (("a", 5), duckdb.InvalidInputException, "must be a string"),
+            (5, haybarn.InvalidInputException, "given as a string, or as a tuple"),
+            (None, haybarn.InvalidInputException, "given as a string, or as a tuple"),
+            ((), haybarn.InvalidInputException, "at least one part"),
+            (("a", 5), haybarn.InvalidInputException, "must be a string"),
         ],
         ids=["int", "none", "empty", "part_is_not_a_string"],
     )
@@ -529,7 +529,7 @@ class TestContextOwnership:
     CALLS: ClassVar = [
         pytest.param(lambda c: c._table_kind("t"), id="table_kind"),
         pytest.param(lambda c: c._name_scope("main"), id="name_scope"),
-        pytest.param(lambda c: duckdb._duckdb._arrow_schema(["i"], ["INTEGER"], connection=c), id="arrow_schema"),
+        pytest.param(lambda c: haybarn._haybarn._arrow_schema(["i"], ["INTEGER"], connection=c), id="arrow_schema"),
         pytest.param(lambda c: c._submit("SELECT 1 AS i").to_box(40, 5), id="to_box"),
         pytest.param(lambda c: c._bind("SELECT * FROM t"), id="bind"),
         pytest.param(lambda c: c._submit("SELECT * FROM t").fetchall(), id="submit"),
@@ -564,13 +564,13 @@ class TestContextOwnership:
     @pytest.mark.parametrize("call", CALLS)
     @pytest.mark.timeout(60)
     def test_a_close_from_another_thread_is_reported_not_crashed(self, call):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         connection.execute("CREATE TABLE t AS SELECT 1 AS i")
         call(connection)
         closed = threading.Thread(target=connection.close)
         closed.start()
         closed.join()
-        with pytest.raises(duckdb.ConnectionException):
+        with pytest.raises(haybarn.ConnectionException):
             call(connection)
 
 
@@ -595,7 +595,7 @@ class TestResultUse:
         try:
             while worker.is_alive():
                 result.fetchall()
-        except duckdb.ResourceInUseException as error:
+        except haybarn.ResourceInUseException as error:
             refusals.append(str(error))
         worker.join()
         assert refusals, "a call on a result that another call is using should refuse"
@@ -606,38 +606,38 @@ class TestResultUse:
         result = con._submit("SELECT 1 AS i")
         result.close()
         for call in (result.fetchall, lambda: result.df(), result.drain, result.close):
-            with pytest.raises(duckdb.InvalidInputException, match="closed"):
+            with pytest.raises(haybarn.InvalidInputException, match="closed"):
                 call()
-        with pytest.raises(duckdb.InvalidInputException, match="closed"):
+        with pytest.raises(haybarn.InvalidInputException, match="closed"):
             _ = result.description
 
     def test_rows_in_the_client_are_read_after_the_connection_closed(self):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         rows = connection._submit("SELECT * FROM range(3)")
         arrow = connection._submit("SELECT * FROM range(3)", None, "arrow")
         connection.close()
         # The rows are in the client, so reading them needs no connection
         assert rows.fetchall() == [(0,), (1,), (2,)]
         # The Arrow schema is built on the connection, so that one reports instead of reading a context that is gone
-        with pytest.raises(duckdb.ConnectionException, match="has already been closed"):
+        with pytest.raises(haybarn.ConnectionException, match="has already been closed"):
             arrow.arrow_table()
 
     def test_a_stream_of_a_closed_connection_reports_rather_than_reads_freed_memory(self):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         stream = connection._submit("SELECT * FROM range(1000000)", None, "stream", 1024)
         connection.close()
         # The query result of an open stream owns its context, so this either reads or reports; it never crashes
         try:
             reader = stream.arrow_reader()
             reader.read_all()
-        except (duckdb.Error, OSError):
+        except (haybarn.Error, OSError):
             pass
 
     def test_to_box_after_the_connection_closed_is_reported(self):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         result = connection._submit("SELECT 1 AS i")
         connection.close()
-        with pytest.raises(duckdb.ConnectionException, match="has already been closed"):
+        with pytest.raises(haybarn.ConnectionException, match="has already been closed"):
             result.to_box(40, 5)
 
 
@@ -654,53 +654,53 @@ class TestCollectedWrapperEndsNothing:
 
     @pytest.mark.parametrize("collect", [False, True], ids=["without_collect", "with_collect"])
     def test_the_relation_reproducer(self, collect):
-        rel = duckdb.values(1)
+        rel = haybarn.values(1)
         del rel
-        duckdb.execute("SELECT 42 AS answer")
+        haybarn.execute("SELECT 42 AS answer")
         if collect:
             gc.collect()
-        assert duckdb.fetch_df()["answer"].tolist() == [42]
+        assert haybarn.fetch_df()["answer"].tolist() == [42]
 
     @pytest.mark.parametrize("collect", [False, True], ids=["without_collect", "with_collect"])
     def test_a_cycle_holding_the_default_connection(self, collect):
         gc.collect()
-        _Cycle(duckdb.default_connection())
-        duckdb.execute("SELECT 42 AS answer")
+        _Cycle(haybarn.default_connection())
+        haybarn.execute("SELECT 42 AS answer")
         if collect:
             gc.collect()
-        assert duckdb.fetch_df()["answer"].tolist() == [42]
+        assert haybarn.fetch_df()["answer"].tolist() == [42]
 
     def test_a_collection_during_the_fetch(self):
         gc.collect()
-        duckdb.execute("SELECT * FROM range(10000) t(i)")
+        haybarn.execute("SELECT * FROM range(10000) t(i)")
         for _ in range(50):
-            _Cycle(duckdb.default_connection())
+            _Cycle(haybarn.default_connection())
         thresholds = gc.get_threshold()
         gc.set_threshold(1, 1, 1)
         try:
-            frame = duckdb.fetch_df()
+            frame = haybarn.fetch_df()
         finally:
             gc.set_threshold(*thresholds)
         assert len(frame) == 10000
 
     def test_a_connection_only_garbage_owns_is_still_torn_down(self, tmp_path):
         path = str(tmp_path / "owned.db")
-        _Cycle(duckdb.connect(path))
+        _Cycle(haybarn.connect(path))
         gc.collect()
         # The database is gone with its last owner, so it opens again under another configuration
-        reopened = duckdb.connect(path, read_only=True)
+        reopened = haybarn.connect(path, read_only=True)
         assert reopened.execute("SELECT 1").fetchall() == [(1,)]
         reopened.close()
 
     def test_close_still_ends_the_connection(self):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         connection.close()
-        with pytest.raises(duckdb.ConnectionException):
+        with pytest.raises(haybarn.ConnectionException):
             connection.execute("SELECT 1")
 
     def test_a_cursor_outlives_its_connection_collected_through_a_cycle(self):
         # As when the parent goes by reference count, the cursor holds the connection it was made from.
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         cursor = connection.cursor()
         _Cycle(connection)
         del connection
@@ -780,7 +780,7 @@ class TestCatalogVersion:
 
     def test_another_database_counts_its_own(self, con):
         before = con._catalog_version()
-        other = duckdb.connect()
+        other = haybarn.connect()
         other.execute("CREATE TABLE u (i INTEGER)")
         assert other._catalog_version() == 1
         assert con._catalog_version() == before
@@ -795,10 +795,10 @@ class TestCatalogVersion:
     def test_a_statement_counts_once_it_is_submitted(self, con):
         # Counted at submission, so a statement that fails later counts as well: re-reading a schema costs a bind
         before = con._catalog_version()
-        with pytest.raises(duckdb.ParserException):
+        with pytest.raises(haybarn.ParserException):
             con.execute("SELEC 1")
         assert con._catalog_version() == before
-        with pytest.raises(duckdb.CatalogException):
+        with pytest.raises(haybarn.CatalogException):
             con._submit("INSERT INTO missing VALUES (1)")
         assert con._catalog_version() == before + 1
 
@@ -850,7 +850,7 @@ class TestRelationResult:
 
     @pytest.mark.parametrize("fmt", ["arrow", "stream"])
     def test_fetchmany_needs_the_rows_format(self, con, fmt):
-        with pytest.raises(duckdb.InvalidInputException, match="fetchmany needs a result submitted with format"):
+        with pytest.raises(haybarn.InvalidInputException, match="fetchmany needs a result submitted with format"):
             con._submit(self.SQL, None, fmt).fetchmany(2)
 
     def test_df_and_numpy(self, con):
@@ -900,7 +900,7 @@ class TestRelationResult:
     )
     def test_method_of_the_other_format(self, con, fmt, method):
         result = con._submit(self.SQL, None, fmt)
-        with pytest.raises(duckdb.InvalidInputException, match=f"{method} needs a result submitted with format"):
+        with pytest.raises(haybarn.InvalidInputException, match=f"{method} needs a result submitted with format"):
             getattr(result, method)()
 
     def test_writes(self, con):
@@ -919,7 +919,7 @@ class TestRelationResult:
         assert con._submit("SELECT 1", None, "arrow").return_type == "query_result"
 
     def test_return_type_of_a_deferred_group_is_known_once_it_ran(self, con, tmp_path):
-        source = duckdb.connect()
+        source = haybarn.connect()
         source.execute("CREATE TABLE exported AS SELECT 1 AS i")
         source.execute(f"EXPORT DATABASE '{tmp_path / 'exp'}'")
         sql = f"IMPORT DATABASE '{tmp_path / 'exp'}'"
@@ -932,9 +932,9 @@ class TestRelationResult:
     def test_close_and_drain(self, con):
         result = con._submit(self.SQL)
         result.close()
-        with pytest.raises(duckdb.InvalidInputException, match="closed"):
+        with pytest.raises(haybarn.InvalidInputException, match="closed"):
             result.fetchall()
-        with pytest.raises(duckdb.InvalidInputException, match="closed"):
+        with pytest.raises(haybarn.InvalidInputException, match="closed"):
             _ = result.description
         stream = con._submit("SELECT * FROM range(1000000)", None, "stream", 10)
         stream.drain()
@@ -951,7 +951,7 @@ class TestRelationResult:
 @pytest.fixture
 def package_wrapper(monkeypatch):
     """Functions of a module inside the duckdb package, standing in for the relation layer between user and seam."""
-    module = types.ModuleType("duckdb._seam_test_wrapper")
+    module = types.ModuleType("haybarn._seam_test_wrapper")
     exec(
         "frame = 'a decoy the scan must not find'\n"
         "def bind(con, sql):\n"
@@ -999,7 +999,7 @@ class TestFrameScan:
         def user():
             return package_wrapper.execute(con, "FROM frame")
 
-        with pytest.raises(duckdb.CatalogException, match="frame"):
+        with pytest.raises(haybarn.CatalogException, match="frame"):
             user()
 
     def test_scan_all_frames_counts_from_the_user_frame(self, con, package_wrapper):
@@ -1010,7 +1010,7 @@ class TestFrameScan:
             frame = pd.DataFrame({"v": ["outer"]})  # noqa: F841
             return inner()
 
-        with pytest.raises(duckdb.CatalogException, match="frame"):
+        with pytest.raises(haybarn.CatalogException, match="frame"):
             outer()
         con.execute("SET python_scan_all_frames = true")
         assert outer() == [("outer",)]
@@ -1044,29 +1044,29 @@ class TestPrepareScript:
 
     def test_parameters_only_on_the_last(self, con):
         assert con._prepare_script("SELECT 1; SELECT ?", [1])[1:] == ("SELECT ?", "select")
-        with pytest.raises(duckdb.NotImplementedException, match="only supported for the last statement"):
+        with pytest.raises(haybarn.NotImplementedException, match="only supported for the last statement"):
             con._prepare_script("SELECT ?; SELECT 1", [1])
-        with pytest.raises(duckdb.InvalidInputException, match="Parameters were given"):
+        with pytest.raises(haybarn.InvalidInputException, match="Parameters were given"):
             con._prepare_script("", [1])
 
     def test_parse_error_aborts_an_explicit_transaction(self, con):
         con.execute("BEGIN")
-        with pytest.raises(duckdb.ParserException):
+        with pytest.raises(haybarn.ParserException):
             con._prepare_script("SELEC 1; SELECT 2", None)
-        with pytest.raises(duckdb.TransactionException, match="aborted"):
+        with pytest.raises(haybarn.TransactionException, match="aborted"):
             con.execute("SELECT 1")
         con.execute("ROLLBACK")
 
     def test_later_parse_error_after_earlier_statements_ran(self, con):
-        with pytest.raises(duckdb.ParserException):
+        with pytest.raises(haybarn.ParserException):
             con._prepare_script("CREATE TABLE u (i INTEGER); SELEC 2", None)
         assert con.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name = 'u'").fetchall() == [(1,)]
 
 
 class TestArrowSchema:
     def test_names_and_types(self, con):
-        schema = duckdb._duckdb._arrow_schema(
-            ["a", "a", "s"], [duckdb.sqltypes.INTEGER, "BIGINT", duckdb.sqltypes.VARCHAR], connection=con
+        schema = haybarn._haybarn._arrow_schema(
+            ["a", "a", "s"], [haybarn.sqltypes.INTEGER, "BIGINT", haybarn.sqltypes.VARCHAR], connection=con
         )
         assert schema.names == ["a", "a_1", "s"]
         assert [str(t) for t in schema.types] == ["int32", "int64", "string"]
@@ -1075,22 +1075,22 @@ class TestArrowSchema:
     def test_matches_a_result(self, con):
         sql = "SELECT i, s, TIMESTAMPTZ '2020-01-01 00:00:00+00' AS ts FROM t"
         bound = con._bind(sql)
-        schema = duckdb._duckdb._arrow_schema(bound[0], bound[1], connection=con)
+        schema = haybarn._haybarn._arrow_schema(bound[0], bound[1], connection=con)
         assert schema == con._submit(sql, None, "arrow").arrow_table().schema
 
     def test_connection_settings_apply(self, con):
         con.execute("SET TimeZone = 'Europe/Amsterdam'")
-        schema = duckdb._duckdb._arrow_schema(["ts"], ["TIMESTAMPTZ"], connection=con)
+        schema = haybarn._haybarn._arrow_schema(["ts"], ["TIMESTAMPTZ"], connection=con)
         assert str(schema.types[0]) == "timestamp[us, tz=Europe/Amsterdam]"
 
     def test_default_connection(self):
-        assert duckdb._duckdb._arrow_schema(["x"], ["DATE"]).names == ["x"]
+        assert haybarn._haybarn._arrow_schema(["x"], ["DATE"]).names == ["x"]
 
     def test_mismatch_and_bad_type(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="one type per name"):
-            duckdb._duckdb._arrow_schema(["a", "b"], ["INTEGER"], connection=con)
-        with pytest.raises(duckdb.InvalidInputException, match="must be DuckDB types"):
-            duckdb._duckdb._arrow_schema(["a"], [object()], connection=con)
+        with pytest.raises(haybarn.InvalidInputException, match="one type per name"):
+            haybarn._haybarn._arrow_schema(["a", "b"], ["INTEGER"], connection=con)
+        with pytest.raises(haybarn.InvalidInputException, match="must be DuckDB types"):
+            haybarn._haybarn._arrow_schema(["a"], [object()], connection=con)
 
 
 class TestRegisterSource:
@@ -1128,19 +1128,19 @@ class TestRegisterSource:
         second = con._register_source(pa.table({"i": [6]}), "My Source")
         assert first.name != second.name
         assert first.name.startswith("__duckdb_source_")
-        with pytest.raises(duckdb.InvalidInputException, match='Python Object "My Source" of type "object"'):
+        with pytest.raises(haybarn.InvalidInputException, match='Python Object "My Source" of type "object"'):
             con._register_source(object(), "My Source")
 
     def test_names_are_unique_in_the_process(self):
-        first = duckdb.connect()._register_source(pa.table({"i": [1]}))
-        second = duckdb.connect()._register_source(pa.table({"i": [1]}))
+        first = haybarn.connect()._register_source(pa.table({"i": [1]}))
+        second = haybarn.connect()._register_source(pa.table({"i": [1]}))
         prefix, token, number = first.name.rsplit("_", 2)
         assert prefix == "__duckdb_source"
         assert len(token) == 12
         assert second.name == f"{prefix}_{token}_{int(number) + 1}"
 
     def test_unknown_object(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="not suitable for replacement scans"):
+        with pytest.raises(haybarn.InvalidInputException, match="not suitable for replacement scans"):
             con._register_source(object())
 
     def test_lifetime_follows_the_handle(self, con):
@@ -1157,7 +1157,7 @@ class TestRegisterSource:
         gc.collect()
         assert handle_ref() is None
         assert frame_ref() is None
-        with pytest.raises(duckdb.InvalidInputException, match="was released"):
+        with pytest.raises(haybarn.InvalidInputException, match="was released"):
             con._submit(f'SELECT * FROM "{name}"')
 
     def test_entry_survives_until_a_running_result_ends(self, con):
@@ -1174,8 +1174,8 @@ class TestRegisterSource:
         cursor.execute(f'CREATE TEMP VIEW cursor_view AS SELECT i + 1 AS j FROM "{handle.name}"')
         assert cursor.execute("SELECT * FROM cursor_view").fetchall() == [(2,)]
         # Another database never held the name, so it is the catalog's own error there
-        with pytest.raises(duckdb.CatalogException, match="does not exist"):
-            duckdb.connect()._submit(f'SELECT * FROM "{handle.name}"')
+        with pytest.raises(haybarn.CatalogException, match="does not exist"):
+            haybarn.connect()._submit(f'SELECT * FROM "{handle.name}"')
 
     def test_cursor_reads_a_temp_view_over_a_registered_frame(self, con):
         handle = con._register_source(pd.DataFrame({"i": [1, 2]}))
@@ -1200,7 +1200,7 @@ class TestRegisterSource:
 
     def test_ahead_of_the_replacement_settings(self):
         for config in ({"enable_external_access": False}, {"python_enable_replacements": False}):
-            connection = duckdb.connect(config=config)
+            connection = haybarn.connect(config=config)
             handle = connection._register_source(pd.DataFrame({"i": [1]}))
             assert connection._submit(f'SELECT * FROM "{handle.name}"').fetchall() == [(1,)]
             connection.close()
@@ -1232,7 +1232,7 @@ class TestRegisterSource:
         assert inner_ref() is None
 
     def test_python_relation_does_not_own_its_connection(self, relation_class):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         connection_ref = weakref.ref(connection)
         relation = relation_class(connection, "SELECT 1 AS x")
         handle = connection._register_source(relation)
@@ -1242,18 +1242,18 @@ class TestRegisterSource:
         assert handle.name.startswith("__duckdb_source_")
 
     def test_python_relation_read_on_another_database_is_refused(self, relation_class, tmp_path):
-        first = duckdb.connect(tmp_path / "a.db")
+        first = haybarn.connect(tmp_path / "a.db")
         first.execute("CREATE TABLE t AS SELECT 1 AS i UNION ALL SELECT 2")
-        second = duckdb.connect(tmp_path / "b.db")
+        second = haybarn.connect(tmp_path / "b.db")
         second.execute("CREATE TABLE t AS SELECT 777 AS i")
         rel = relation_class(first, "SELECT * FROM t ORDER BY i")
         assert first.execute("SELECT * FROM rel").fetchall() == [(1,), (2,)]
-        with pytest.raises(duckdb.InvalidInputException, match='Python Object "rel"') as raised:
+        with pytest.raises(haybarn.InvalidInputException, match='Python Object "rel"') as raised:
             second.execute("SELECT * FROM rel")
         assert "a.db" in str(raised.value)
         assert "another database" in str(raised.value)
         # Registered rather than read by name, so the error names the object as the source it was given as
-        with pytest.raises(duckdb.InvalidInputException, match="cannot be read on a connection to another database"):
+        with pytest.raises(haybarn.InvalidInputException, match="cannot be read on a connection to another database"):
             second._register_source(rel)
         # The other database's own table is what its own name reads
         assert second.execute("SELECT * FROM t").fetchall() == [(777,)]
@@ -1261,16 +1261,16 @@ class TestRegisterSource:
         second.close()
 
     def test_python_relation_of_a_closed_connection_is_refused(self, con, relation_class):
-        other = duckdb.connect()
+        other = haybarn.connect()
         rel = relation_class(other, "SELECT 1 AS i")  # noqa: F841, read by name below
         other.close()
-        with pytest.raises(duckdb.InvalidInputException, match="closed"):
+        with pytest.raises(haybarn.InvalidInputException, match="closed"):
             con.execute("SELECT * FROM rel")
 
     def test_python_relation_read_on_a_sibling_connection_of_the_database(self, relation_class, tmp_path):
-        first = duckdb.connect(tmp_path / "a.db")
+        first = haybarn.connect(tmp_path / "a.db")
         first.execute("CREATE TABLE t AS SELECT 5 AS i")
-        sibling = duckdb.connect(tmp_path / "a.db")
+        sibling = haybarn.connect(tmp_path / "a.db")
         cursor = first.cursor()
         rel = relation_class(first, "SELECT * FROM t")  # noqa: F841, read by name below
         assert cursor.execute("SELECT * FROM rel").fetchall() == [(5,)]
@@ -1296,7 +1296,7 @@ class TestRegisterSource:
     def test_python_relation_with_markers_registers(self, con, relation_class):
         relation = relation_class(con, "SELECT * FROM t WHERE i < $1")
         handle = con._register_source(relation)
-        with pytest.raises(duckdb.InvalidInputException):
+        with pytest.raises(haybarn.InvalidInputException):
             con._submit(f'SELECT * FROM "{handle.name}"')
 
     def test_python_relation_is_read_through_its_registry_text(self, con, relation_class):
@@ -1309,7 +1309,7 @@ class TestRegisterSource:
 
     def test_python_relation_that_is_not_a_select(self, con, relation_class):
         relation = relation_class(con, "SELECT 1; SELECT 2")
-        with pytest.raises(duckdb.InvalidInputException, match="exactly one SELECT statement"):
+        with pytest.raises(haybarn.InvalidInputException, match="exactly one SELECT statement"):
             con._register_source(relation)
 
     def test_lookalike_class_is_not_a_relation(self, con, relation_class):
@@ -1323,7 +1323,7 @@ class TestRegisterSource:
             def _registry_text(self):
                 return "SELECT 1"
 
-        with pytest.raises(duckdb.InvalidInputException, match="not suitable for replacement scans"):
+        with pytest.raises(haybarn.InvalidInputException, match="not suitable for replacement scans"):
             con._register_source(DuckDBPyRelation())
 
 
@@ -1365,7 +1365,7 @@ class TestSourceIdentity:
         assert con._submit(f'SELECT * FROM "{name}"').fetchall() == [(1,)]
         del second
         gc.collect()
-        with pytest.raises(duckdb.InvalidInputException, match="was released"):
+        with pytest.raises(haybarn.InvalidInputException, match="was released"):
             con._submit(f'SELECT * FROM "{name}"')
 
     def test_a_dropped_key_is_not_resurrected(self, con):
@@ -1427,7 +1427,7 @@ class TestSourceIdentity:
         assert con.execute("SELECT * FROM frame_view").fetchall() == [(1,)]
 
     def test_a_remembered_object_is_not_kept_alive(self, relation_class):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         relation = relation_class(connection, "SELECT 1 AS x")
         relation_ref = weakref.ref(relation)
         handle = connection._register_source(relation)
@@ -1463,11 +1463,11 @@ class TestRegisterCollection:
         name = handle.name
         del handle
         gc.collect()
-        with pytest.raises(duckdb.InvalidInputException, match="was released"):
+        with pytest.raises(haybarn.InvalidInputException, match="was released"):
             con._submit(f'SELECT * FROM "{name}"')
 
     def test_arrow_result_refused(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="needs a result submitted with format 'rows'"):
+        with pytest.raises(haybarn.InvalidInputException, match="needs a result submitted with format 'rows'"):
             con._register_collection(con._submit("SELECT 1", None, "arrow"))
 
     def test_result_of_a_cursor(self, con):
@@ -1475,8 +1475,8 @@ class TestRegisterCollection:
         assert con._submit(f'SELECT * FROM "{handle.name}"').fetchall() == [(1,)]
 
     def test_result_of_another_database(self, con):
-        result = duckdb.connect()._submit("SELECT 1")
-        with pytest.raises(duckdb.InvalidInputException, match="another database"):
+        result = haybarn.connect()._submit("SELECT 1")
+        with pytest.raises(haybarn.InvalidInputException, match="another database"):
             con._register_collection(result)
 
 
@@ -1497,7 +1497,7 @@ class TestRegisterValues:
         def stage():
             try:
                 staged.append(con._register_values([(GatedDate(2020, 1, 1),)]))
-            except duckdb.ResourceInUseException as error:
+            except haybarn.ResourceInUseException as error:
                 staged.append(error)
 
         staging = threading.Thread(target=stage)
@@ -1510,7 +1510,7 @@ class TestRegisterValues:
         running.join(30)
         assert ran == [[(1,)]]
         assert len(staged) == 1
-        assert isinstance(staged[0], duckdb.ResourceInUseException)
+        assert isinstance(staged[0], haybarn.ResourceInUseException)
         assert "busy with another call" in str(staged[0])
 
 
@@ -1551,13 +1551,13 @@ class TestRegisterMap:
             raise ValueError(msg)
 
         mapped = con._register_map(fn, None, "SELECT i FROM t")
-        with pytest.raises(duckdb.InvalidInputException, match="Python error"):
+        with pytest.raises(haybarn.InvalidInputException, match="Python error"):
             con._bind(f'SELECT * FROM "{mapped.name}"')
 
     def test_input_must_be_one_select(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="exactly one SELECT statement"):
+        with pytest.raises(haybarn.InvalidInputException, match="exactly one SELECT statement"):
             con._register_map(lambda df: df, None, "DELETE FROM t")
-        with pytest.raises(duckdb.ParserException):
+        with pytest.raises(haybarn.ParserException):
             con._register_map(lambda df: df, None, "SELEC 1")
 
 
@@ -1569,7 +1569,7 @@ class TestRegisterFilelike:
         assert con._submit(f"SELECT * FROM read_csv('{path}') ORDER BY a").fetchall() == [(1, 2), (3, 4)]
         del handle
         gc.collect()
-        with pytest.raises(duckdb.IOException):
+        with pytest.raises(haybarn.IOException):
             con._submit(f"SELECT * FROM read_csv('{path}')")
 
     def test_path_passes_through(self, con, tmp_path):
@@ -1577,7 +1577,7 @@ class TestRegisterFilelike:
         assert con._register_filelike(path).name == path
 
     def test_list_refused(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="not a list"):
+        with pytest.raises(haybarn.InvalidInputException, match="not a list"):
             con._register_filelike([io.BytesIO(b"a\n1\n")])
 
 
@@ -1596,7 +1596,7 @@ class TestOwnSources:
         assert handle_ref() is None
         # The view reads sources the unregister released, so it goes with them
         assert con.execute("SELECT count(*) FROM duckdb_views() WHERE view_name = 'owned'").fetchall() == [(0,)]
-        with pytest.raises(duckdb.CatalogException, match="owned"):
+        with pytest.raises(haybarn.CatalogException, match="owned"):
             con.execute("SELECT * FROM owned")
 
     def test_a_later_call_replaces_the_handles(self, con):
@@ -1623,7 +1623,7 @@ class TestOwnSources:
         assert handle_ref() is None
 
     def test_close_releases_them(self):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         handle = connection._register_source(pa.table({"i": [1]}))
         handle_ref = weakref.ref(handle)
         connection._own_sources("v", [handle])
@@ -1639,9 +1639,9 @@ class TestOwnSources:
     def test_a_failed_drop_keeps_the_registration(self, con):
         con.register("v", pd.DataFrame({"i": [1]}))
         con.execute("BEGIN")
-        with pytest.raises(duckdb.CatalogException):
+        with pytest.raises(haybarn.CatalogException):
             con.execute("SELECT * FROM missing")
-        with pytest.raises(duckdb.TransactionException):
+        with pytest.raises(haybarn.TransactionException):
             con.unregister("v")
         con.execute("ROLLBACK")
         # The name is still registered and its source still there, so the view reads and unregister works
@@ -1665,11 +1665,11 @@ class TestOwnSources:
         con.execute(f'CREATE TEMP VIEW orphan AS SELECT * FROM "{key}"')
         del handle
         gc.collect()
-        with pytest.raises(duckdb.InvalidInputException, match="was released") as raised:
+        with pytest.raises(haybarn.InvalidInputException, match="was released") as raised:
             con.execute("SELECT * FROM orphan")
         # The generated key is ours, so no error shows it
         assert key not in str(raised.value)
-        with pytest.raises(duckdb.InvalidInputException, match="was released"):
+        with pytest.raises(haybarn.InvalidInputException, match="was released"):
             con._bind("SELECT * FROM orphan")
 
 
@@ -1713,20 +1713,20 @@ class TestCreateView:
 
     def test_a_captured_relation_is_stored_as_its_text(self, relation_class, tmp_path):
         path = tmp_path / "f.db"
-        first = duckdb.connect(path)
+        first = haybarn.connect(path)
         first.execute("CREATE TABLE t AS SELECT 1 AS a UNION ALL SELECT 2")
         rel = relation_class(first, "SELECT a FROM t")  # noqa: F841, captured by name below
         [(_, handle)] = first._bind("SELECT * FROM rel", capture=True)[5]
         first._create_view("r", f'WITH "rel" AS (SELECT * FROM "{handle.name}") SELECT * FROM rel ORDER BY a')
         first.close()
-        reopened = duckdb.connect(path)
+        reopened = haybarn.connect(path)
         assert reopened.execute("SELECT * FROM r").fetchall() == [(1,), (2,)]
         reopened.close()
 
     def test_a_collection_is_refused_in_a_file(self, tmp_path):
-        connection = duckdb.connect(tmp_path / "f.db")
+        connection = haybarn.connect(tmp_path / "f.db")
         rows = connection._register_collection(connection._submit("SELECT 41 AS x UNION ALL SELECT 42"))
-        with pytest.raises(duckdb.InvalidInputException) as caught:
+        with pytest.raises(haybarn.InvalidInputException) as caught:
             connection._create_view("c", f'SELECT * FROM "{rows.name}"')
         assert "create(" in str(caught.value)
         assert "register(" in str(caught.value)
@@ -1734,10 +1734,10 @@ class TestCreateView:
         connection.close()
 
     def test_a_python_object_cannot_be_stored_in_a_file(self, tmp_path):
-        connection = duckdb.connect(tmp_path / "f.db")
+        connection = haybarn.connect(tmp_path / "f.db")
         handle = connection._register_source(pd.DataFrame({"a": [1]}))
         match = r"cannot be stored in a database file\. Use register\(\) for a view that reads it in this session"
-        with pytest.raises(duckdb.InvalidInputException, match=match):
+        with pytest.raises(haybarn.InvalidInputException, match=match):
             connection._create_view("p", f'SELECT * FROM "{handle.name}"')
         connection._create_view("p", f'SELECT * FROM "{handle.name}"', temporary=True)
         assert connection.execute("SELECT * FROM p").fetchall() == [(1,)]
@@ -1752,7 +1752,7 @@ class TestCreateView:
 
     def test_replace_and_names(self, con):
         con._create_view(("main", "w"), "SELECT 1 AS i")
-        with pytest.raises(duckdb.CatalogException, match="already exists"):
+        with pytest.raises(haybarn.CatalogException, match="already exists"):
             con._create_view("w", "SELECT 2 AS i")
         con._create_view("w", "SELECT 2 AS i", replace=True)
         assert con.execute("SELECT * FROM main.w").fetchall() == [(2,)]
@@ -1767,11 +1767,11 @@ class TestCreateView:
         key = handle.name
         del handle
         gc.collect()
-        with pytest.raises(duckdb.InvalidInputException, match='registered as "frame", which was released'):
+        with pytest.raises(haybarn.InvalidInputException, match='registered as "frame", which was released'):
             con._create_view("w", f'SELECT * FROM "{key}"', temporary=True)
 
     def test_only_a_select(self, con):
-        with pytest.raises(duckdb.InvalidInputException, match="exactly one SELECT statement"):
+        with pytest.raises(haybarn.InvalidInputException, match="exactly one SELECT statement"):
             con._create_view("w", "DELETE FROM t")
 
     def test_a_cte_shadows_a_registry_name(self, con):
@@ -1799,10 +1799,10 @@ class TestCreateView:
         facts = con._register_source(pd.DataFrame({"year": [2020], "v": [7]}))
         years = con._register_source(pd.DataFrame({"year": [2020]}))
         sql = f'PIVOT "{facts.name}" ON year IN (SELECT year FROM "{years.name}") USING sum(v)'
-        with pytest.raises(duckdb.InvalidInputException, match="found a MULTI statement"):
+        with pytest.raises(haybarn.InvalidInputException, match="found a MULTI statement"):
             con._create_view("w", f"SELECT * FROM ({sql})", temporary=True)
         con.execute("CREATE TABLE f AS SELECT 2020 AS year, 7 AS v")
-        with pytest.raises(duckdb.ParserException, match="cannot be used in views"):
+        with pytest.raises(haybarn.ParserException, match="cannot be used in views"):
             con.execute("CREATE VIEW w AS PIVOT f ON year IN (SELECT year FROM f) USING sum(v)")
 
 
@@ -1828,7 +1828,7 @@ class TestRegister:
         con.unregister("frame_view")
         gc.collect()
         assert frame_ref() is None
-        with pytest.raises(duckdb.CatalogException):
+        with pytest.raises(haybarn.CatalogException):
             con.execute("SELECT * FROM frame_view")
 
     def test_a_rolled_back_unregister_keeps_the_object(self, con):
@@ -1931,17 +1931,17 @@ class TestRegister:
 
     def test_reregister_after_a_failed_register_keeps_the_old_object(self, con):
         con.register("v", pd.DataFrame({"i": [1]}))
-        with pytest.raises(duckdb.InvalidInputException, match="not suitable for replacement scans"):
+        with pytest.raises(haybarn.InvalidInputException, match="not suitable for replacement scans"):
             con.register("v", object())
         assert con.execute("SELECT * FROM v").fetchall() == [(1,)]
 
     def test_name_of_a_view_it_did_not_create(self, con):
         con.execute("CREATE TEMP VIEW taken AS SELECT 1")
-        with pytest.raises(duckdb.CatalogException, match="already exists"):
+        with pytest.raises(haybarn.CatalogException, match="already exists"):
             con.register("taken", pd.DataFrame({"i": [1]}))
 
     def test_close_frees_registered_objects(self):
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         frame = pd.DataFrame({"i": [1]})
         frame_ref = weakref.ref(frame)
         connection.register("v", frame)
@@ -1952,7 +1952,7 @@ class TestRegister:
 
 
 def execute_type(value):
-    return str(duckdb.connect().execute("SELECT ? AS p", [value]).description[0][1])
+    return str(haybarn.connect().execute("SELECT ? AS p", [value]).description[0][1])
 
 
 class TestLiteralType:
@@ -1986,14 +1986,14 @@ class TestLiteralType:
         ],
     )
     def test_types_as_execute_binds_them(self, value, expected):
-        assert duckdb._duckdb._literal_type(value) == expected
+        assert haybarn._haybarn._literal_type(value) == expected
         assert execute_type(value) == expected
 
     @pytest.mark.parametrize("value", [object(), np.int64(3), np.int8(3), np.bool_(True)])
     def test_values_execute_cannot_bind(self, value):
-        with pytest.raises(duckdb.NotImplementedException, match="Unable to transform python value"):
-            duckdb._duckdb._literal_type(value)
-        with pytest.raises(duckdb.NotImplementedException, match="Unable to transform python value"):
+        with pytest.raises(haybarn.NotImplementedException, match="Unable to transform python value"):
+            haybarn._haybarn._literal_type(value)
+        with pytest.raises(haybarn.NotImplementedException, match="Unable to transform python value"):
             execute_type(value)
 
 
@@ -2013,23 +2013,23 @@ class TestTemporalLiteral:
         ],
     )
     def test_literal_round_trips(self, value, expected):
-        literal = duckdb._duckdb._temporal_literal(value)
+        literal = haybarn._haybarn._temporal_literal(value)
         assert literal == expected
-        assert duckdb.connect().execute(f"SELECT {literal} = ?", [value]).fetchall() == [(True,)]
+        assert haybarn.connect().execute(f"SELECT {literal} = ?", [value]).fetchall() == [(True,)]
 
     @pytest.mark.parametrize("value", [5, "2020-01-02", 1.5, None])
     def test_not_temporal(self, value):
-        with pytest.raises(duckdb.InvalidInputException, match="Expected a date, time, datetime, timedelta"):
-            duckdb._duckdb._temporal_literal(value)
+        with pytest.raises(haybarn.InvalidInputException, match="Expected a date, time, datetime, timedelta"):
+            haybarn._haybarn._temporal_literal(value)
 
 
 class TestValueLiteral:
     @pytest.mark.parametrize(
         ("make", "expected"),
         [
-            (lambda: duckdb.Value(5, duckdb.sqltypes.TINYINT), "CAST(5 AS TINYINT)"),
-            (lambda: duckdb.Value("2020-01-02", duckdb.sqltypes.DATE), "'2020-01-02'::DATE"),
-            (lambda: duckdb.Value(1, duckdb.sqltypes.DOUBLE), "CAST(1.0 AS DOUBLE)"),
+            (lambda: haybarn.Value(5, haybarn.sqltypes.TINYINT), "CAST(5 AS TINYINT)"),
+            (lambda: haybarn.Value("2020-01-02", haybarn.sqltypes.DATE), "'2020-01-02'::DATE"),
+            (lambda: haybarn.Value(1, haybarn.sqltypes.DOUBLE), "CAST(1.0 AS DOUBLE)"),
             (lambda: {"a": 1, "b": "x"}, "CAST({'a': 1, 'b': 'x'} AS STRUCT(a INTEGER, b VARCHAR))"),
             (lambda: [[1, 2], [3]], "CAST([[1, 2], [3]] AS INTEGER[][])"),
             (lambda: [None, 1], "CAST([NULL::INTEGER, 1] AS INTEGER[])"),
@@ -2059,20 +2059,20 @@ class TestValueLiteral:
     )
     def test_literal_binds_as_the_parameter(self, make, expected):
         value = make()
-        literal = duckdb._duckdb._value_literal(value)
+        literal = haybarn._haybarn._value_literal(value)
         assert literal == expected
-        connection = duckdb.connect()
+        connection = haybarn.connect()
         parameter_type = str(connection.execute("SELECT ? AS p", [value]).description[0][1])
         assert str(connection.execute(f"SELECT {literal} AS p").description[0][1]) == parameter_type
         assert connection.execute(f"SELECT {literal} IS NOT DISTINCT FROM ?", [value]).fetchall() == [(True,)]
 
     def test_temporal_literal_is_a_special_case(self):
         value = datetime.datetime(2020, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc)
-        assert duckdb._duckdb._value_literal(value) == duckdb._duckdb._temporal_literal(value)
+        assert haybarn._haybarn._value_literal(value) == haybarn._haybarn._temporal_literal(value)
 
     def test_value_no_literal_can_hold(self):
-        with pytest.raises(duckdb.NotImplementedException, match="Unable to transform python value"):
-            duckdb._duckdb._value_literal(object())
+        with pytest.raises(haybarn.NotImplementedException, match="Unable to transform python value"):
+            haybarn._haybarn._value_literal(object())
 
 
 class TestParseExpressions:
@@ -2087,14 +2087,14 @@ class TestParseExpressions:
         ],
     )
     def test_rendered_back(self, text, expected):
-        rendered = duckdb._duckdb._parse_expressions(text)
+        rendered = haybarn._haybarn._parse_expressions(text)
         assert rendered == expected
-        assert duckdb._duckdb._parse_expressions(", ".join(rendered)) == rendered
+        assert haybarn._haybarn._parse_expressions(", ".join(rendered)) == rendered
 
     @pytest.mark.parametrize("text", ["a,, b", "1 +", ""])
     def test_syntax_error(self, text):
-        with pytest.raises(duckdb.ParserException):
-            duckdb._duckdb._parse_expressions(text)
+        with pytest.raises(haybarn.ParserException):
+            haybarn._haybarn._parse_expressions(text)
 
     @pytest.mark.parametrize(
         ("text", "held"),
@@ -2114,8 +2114,8 @@ class TestParseExpressions:
         ],
     )
     def test_text_the_expression_list_does_not_consume(self, text, held):
-        with pytest.raises(duckdb.ParserException, match=f"is not an expression list: it holds {re.escape(held)}"):
-            duckdb._duckdb._parse_expressions(text)
+        with pytest.raises(haybarn.ParserException, match=f"is not an expression list: it holds {re.escape(held)}"):
+            haybarn._haybarn._parse_expressions(text)
 
     @pytest.mark.parametrize(
         "text",
@@ -2128,4 +2128,4 @@ class TestParseExpressions:
         ],
     )
     def test_a_clause_inside_an_expression_is_consumed(self, text):
-        assert len(duckdb._duckdb._parse_expressions(text)) == 1
+        assert len(haybarn._haybarn._parse_expressions(text)) == 1

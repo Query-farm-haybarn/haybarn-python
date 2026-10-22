@@ -75,9 +75,9 @@ def test_duckdb_runs_a_query(tmp_path):
     run_blocked(
         tmp_path,
         """
-        import duckdb
+        import haybarn
 
-        assert duckdb.sql("SELECT 42 AS answer").fetchall() == [(42,)]
+        assert haybarn.sql("SELECT 42 AS answer").fetchall() == [(42,)]
         """,
     )
 
@@ -86,9 +86,9 @@ def test_spark_basic_use(tmp_path):
     run_blocked(
         tmp_path,
         """
-        from duckdb.experimental.spark.sql import SparkSession
-        from duckdb.experimental.spark.sql import functions as F
-        from duckdb.experimental.spark.sql.types import Row
+        from haybarn.experimental.spark.sql import SparkSession
+        from haybarn.experimental.spark.sql import functions as F
+        from haybarn.experimental.spark.sql.types import Row
 
         spark = SparkSession.builder.getOrCreate()
         df = spark.createDataFrame([(1, "a", 10), (2, "b", 20), (3, "a", 30)], ["id", "k", "v"])
@@ -124,7 +124,7 @@ def test_spark_conversion_names_the_missing_package(tmp_path, method, package, b
     run_blocked(
         tmp_path,
         f"""
-        from duckdb.experimental.spark.sql import SparkSession
+        from haybarn.experimental.spark.sql import SparkSession
 
         df = SparkSession.builder.getOrCreate().createDataFrame([(1, "a")], ["id", "k"])
         try:
@@ -145,7 +145,7 @@ def test_spark_timestamps(tmp_path):
         """
         import datetime
 
-        from duckdb.experimental.spark.sql import SparkSession
+        from haybarn.experimental.spark.sql import SparkSession
 
         spark = SparkSession.builder.getOrCreate()
         value = datetime.datetime(2024, 1, 2, 3, 4, 5)
@@ -169,7 +169,7 @@ def test_spark_timestamps_to_pandas(tmp_path):
         """
         import datetime
 
-        from duckdb.experimental.spark.sql import SparkSession
+        from haybarn.experimental.spark.sql import SparkSession
 
         spark = SparkSession.builder.getOrCreate()
         value = datetime.datetime(2024, 1, 2, 3, 4, 5)
@@ -186,13 +186,13 @@ def test_spark_udf_needs_numpy(tmp_path, blocked):
     run_blocked(
         tmp_path,
         """
-        import duckdb
-        from duckdb.experimental.spark.sql import SparkSession
+        import haybarn
+        from haybarn.experimental.spark.sql import SparkSession
 
         spark = SparkSession.builder.getOrCreate()
         try:
             spark.udf.register("plus_one", lambda n: n + 1, "int")
-        except duckdb.InvalidInputException as error:
+        except haybarn.InvalidInputException as error:
             assert "'numpy' is required" in str(error), repr(error)
         else:
             raise AssertionError("registering a UDF without numpy did not raise")
@@ -210,8 +210,8 @@ def test_spark_udf_with_a_timestamp_needs_pytz(tmp_path):
         """
         import datetime
 
-        import duckdb
-        from duckdb.experimental.spark.sql import SparkSession
+        import haybarn
+        from haybarn.experimental.spark.sql import SparkSession
 
         spark = SparkSession.builder.getOrCreate()
         plus_one = spark.udf.register("plus_one", lambda n: n + 1, "int")
@@ -220,7 +220,7 @@ def test_spark_udf_with_a_timestamp_needs_pytz(tmp_path):
         df = spark.createDataFrame([(datetime.datetime(2024, 1, 2),)], "t timestamp")
         try:
             df.select(year("t")).collect()
-        except duckdb.InvalidInputException as error:
+        except haybarn.InvalidInputException as error:
             assert "'pytz' failed to import" in str(error), repr(error)
         else:
             raise AssertionError("a UDF of a timestamp without pytz did not raise")

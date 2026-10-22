@@ -1,12 +1,12 @@
 import pytest
 
-import duckdb
-from duckdb import ColumnExpression
+import haybarn
+from haybarn import ColumnExpression
 
 
 @pytest.fixture
 def con():
-    conn = duckdb.connect()
+    conn = haybarn.connect()
     # Main relation
     conn.execute(
         """

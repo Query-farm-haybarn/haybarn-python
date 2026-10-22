@@ -4,9 +4,9 @@ from decimal import Decimal
 
 import pytest
 
-import duckdb
+import haybarn
 
-_ = pytest.importorskip("duckdb.experimental.spark")
+_ = pytest.importorskip("haybarn.experimental.spark")
 pd = pytest.importorskip("pandas")
 
 from pandas.testing import assert_frame_equal
@@ -484,7 +484,7 @@ class TestPandasObjectColumnsWithoutASchema:
     @pytest.mark.xfail(strict=True, reason="a value outside the sample is converted into the sampled type")
     def test_object_value_outside_the_sample_that_does_not_fit_raises(self, spark, column, match):
         df = spark.createDataFrame(pd.DataFrame({"a": column}))
-        with pytest.raises(duckdb.InvalidInputException, match=match):
+        with pytest.raises(haybarn.InvalidInputException, match=match):
             df.collect()
 
     def test_midnight_datetime_outside_the_sample_of_dates_reads_as_its_date(self, spark):

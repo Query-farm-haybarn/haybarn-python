@@ -46,7 +46,7 @@ cmake-build-debug
 cmake-build-release
 cmake-build-relwithdebinfo
 duckdb_packaging/build_info.json
-duckdb/_build_info.py
+haybarn/_build_info.py
 test.db
 tmp/
 
@@ -58,7 +58,7 @@ tmp/
 .venv
 uv.lock
 dist
-duckdb.egg-info
+haybarn.egg-info
 .eggs
 .pytest_cache
 .coverage

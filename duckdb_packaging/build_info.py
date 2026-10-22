@@ -39,7 +39,7 @@ OVERRIDE_GIT_DESCRIBE_ENV_VAR = "OVERRIDE_GIT_DESCRIBE"
 OVERRIDE_DUCKDB_GIT_DESCRIBE_ENV_VAR = "OVERRIDE_DUCKDB_GIT_DESCRIBE"
 
 BUILD_INFO_JSON = Path(__file__).with_name("build_info.json")
-BUILD_INFO_MODULE = PROJECT_ROOT / "duckdb" / "_build_info.py"
+BUILD_INFO_MODULE = PROJECT_ROOT / "haybarn" / "_build_info.py"
 
 # A forced package version is an exact release: vX.Y.Z with an optional -postN or
 # pre-release suffix. A describe distance (-N-g<hash>) has no meaning for a release.

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import tomllib
 
-import duckdb
+import haybarn
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -38,10 +38,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from duckdb._expression import FamilyExpr
+from haybarn._expression import FamilyExpr
 
 if TYPE_CHECKING:
-    from duckdb._expression import Expression, ValueOrExpr
+    from haybarn._expression import Expression, ValueOrExpr
 '''
 
 
@@ -54,7 +54,7 @@ def load_table() -> dict[str, Any]:
     return tomllib.loads((Path(__file__).with_name("func_namespaces.toml")).read_text())
 
 
-def catalog(connection: duckdb.DuckDBPyConnection) -> dict[str, list[tuple[Any, ...]]]:
+def catalog(connection: haybarn.DuckDBPyConnection) -> dict[str, list[tuple[Any, ...]]]:
     """Every scalar function and macro by name: (type, parameters, parameter_types, return_type, description)."""
     query = """
         SELECT function_name, function_type, parameters, parameter_types, return_type, description
@@ -68,7 +68,7 @@ def catalog(connection: duckdb.DuckDBPyConnection) -> dict[str, list[tuple[Any, 
     return by_name
 
 
-def coverage(connection: duckdb.DuckDBPyConnection, covers: dict[str, str]) -> dict[str, set[str]]:
+def coverage(connection: haybarn.DuckDBPyConnection, covers: dict[str, str]) -> dict[str, set[str]]:
     """The function names each family claims to cover, per its `covers` rule."""
     named = """
         SELECT DISTINCT function_name AS f, categories, parameter_types
@@ -130,8 +130,8 @@ def _return_class(return_type: str) -> str:
 
 def _reserved() -> set[str]:
     """Every Expression attribute a family method must not shadow; the aggregate shortcuts are the exception."""
-    from duckdb._expression import Expression, FamilyExpr, FuncNamespaces
-    from duckdb._expression_aggregates import AggregateMethods
+    from haybarn._expression import Expression, FamilyExpr, FuncNamespaces
+    from haybarn._expression_aggregates import AggregateMethods
 
     aggregates = {name for name in vars(AggregateMethods) if not name.startswith("_")}
     names: set[str] = set()
@@ -178,7 +178,7 @@ def _bound_overload(
 
 
 def build(
-    connection: duckdb.DuckDBPyConnection, table: dict[str, Any] | None = None
+    connection: haybarn.DuckDBPyConnection, table: dict[str, Any] | None = None
 ) -> tuple[dict[str, Any], dict[str, list[str]]]:
     """Verify the table against the catalog; return it with resolved entries, and the problems."""
     table = load_table() if table is None else table
@@ -298,12 +298,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", nargs="?", choices=["write", "check"], default="write", help="check fails if stale")
     args = parser.parse_args()
-    resolved, report = build(duckdb.connect())
+    resolved, report = build(haybarn.connect())
     if report["problems"]:
         print("\n".join(report["problems"]), file=sys.stderr)
         return 1
     text = render(resolved)
-    target = Path(__file__).resolve().parent.parent / "duckdb" / "_expression_namespaces.py"
+    target = Path(__file__).resolve().parent.parent / "haybarn" / "_expression_namespaces.py"
     if args.mode == "check":
         if target.read_text() != text:
             print(f"{target} is stale; run scripts/gen_func_namespaces.py", file=sys.stderr)

@@ -1,19 +1,19 @@
 import pytest
 
-import duckdb
+import haybarn
 import pandas as pd
 
 
 class TestParameterList:
     def test_bool(self, duckdb_cursor):
-        conn = duckdb.connect()
+        conn = haybarn.connect()
         conn.execute("create table bool_table (a bool)")
         conn.execute("insert into bool_table values (TRUE)")
         res = conn.execute("select count(*) from bool_table where a =?", [True])
         assert res.fetchone()[0] == 1
 
     def test_exception(self, duckdb_cursor):
-        conn = duckdb.connect()
+        conn = haybarn.connect()
         df_in = pd.DataFrame(
             {
                 "numbers": [1, 2, 3, 4, 5],
@@ -21,11 +21,11 @@ class TestParameterList:
         )
         conn.execute("create table bool_table (a bool)")
         conn.execute("insert into bool_table values (TRUE)")
-        with pytest.raises(duckdb.NotImplementedException, match="Unable to transform"):
+        with pytest.raises(haybarn.NotImplementedException, match="Unable to transform"):
             conn.execute("select count(*) from bool_table where a =?", [df_in])
 
     def test_explicit_nan_param(self):
-        con = duckdb.default_connection()
+        con = haybarn.default_connection()
         res = con.execute("select isnan(cast(? as double))", (float("nan"),))
         assert res.fetchone()[0]
 
@@ -40,34 +40,34 @@ class TestParameterList:
         ],
     )
     def test_nested_nan_param(self, param, query):
-        con = duckdb.connect()
+        con = haybarn.connect()
         assert con.execute(query, [param]).fetchone() == (True,)
 
     @pytest.mark.parametrize(
         ("value", "query"),
         [
-            (duckdb.Value(float("nan"), duckdb.sqltype("DOUBLE")), "select isnan(?)"),
-            (duckdb.Value({"k": float("nan")}, duckdb.sqltype("MAP(VARCHAR, DOUBLE)")), "select isnan(?['k'])"),
-            (duckdb.Value({"a": float("nan")}, duckdb.sqltype("STRUCT(a DOUBLE)")), "select isnan(?.a)"),
-            (duckdb.Value([float("nan"), 1.0], duckdb.sqltype("DOUBLE[2]")), "select isnan(?[1])"),
-            (duckdb.Value({float("nan"): 1}, duckdb.sqltype("MAP(DOUBLE, INTEGER)")), "select isnan(map_keys(?)[1])"),
+            (haybarn.Value(float("nan"), haybarn.sqltype("DOUBLE")), "select isnan(?)"),
+            (haybarn.Value({"k": float("nan")}, haybarn.sqltype("MAP(VARCHAR, DOUBLE)")), "select isnan(?['k'])"),
+            (haybarn.Value({"a": float("nan")}, haybarn.sqltype("STRUCT(a DOUBLE)")), "select isnan(?.a)"),
+            (haybarn.Value([float("nan"), 1.0], haybarn.sqltype("DOUBLE[2]")), "select isnan(?[1])"),
+            (haybarn.Value({float("nan"): 1}, haybarn.sqltype("MAP(DOUBLE, INTEGER)")), "select isnan(map_keys(?)[1])"),
             (
-                duckdb.Value((float("nan"), [float("nan")]), duckdb.sqltype("STRUCT(a DOUBLE, b DOUBLE[])")),
+                haybarn.Value((float("nan"), [float("nan")]), haybarn.sqltype("STRUCT(a DOUBLE, b DOUBLE[])")),
                 "select isnan(?.b[1])",
             ),
         ],
     )
     def test_nan_typed_value_param(self, value, query):
-        con = duckdb.connect()
+        con = haybarn.connect()
         assert con.execute(query, [value]).fetchone() == (True,)
 
     def test_nested_nan_typed_param(self):
-        con = duckdb.connect()
-        value = duckdb.Value((float("nan"), 1.0), duckdb.sqltype("STRUCT(a DOUBLE, b DOUBLE)"))
+        con = haybarn.connect()
+        value = haybarn.Value((float("nan"), 1.0), haybarn.sqltype("STRUCT(a DOUBLE, b DOUBLE)"))
         assert con.execute("select isnan(?.a)", [value]).fetchone() == (True,)
 
     def test_string_parameter(self, duckdb_cursor):
-        conn = duckdb.connect()
+        conn = haybarn.connect()
         conn.execute("create table orders (o_orderdate date)")
         conn.execute("insert into orders values (date '1992-01-01'), (date '1994-01-01')")
         conn.execute(

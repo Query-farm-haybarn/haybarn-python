@@ -22,7 +22,7 @@
 #include "duckdb_python/arrow/python_arrow_scan.hpp"
 
 #ifndef DUCKDB_PYTHON_LIB_NAME
-#define DUCKDB_PYTHON_LIB_NAME _duckdb
+#define DUCKDB_PYTHON_LIB_NAME _haybarn
 #endif
 
 // Defined by the static extension loader generated at configure time from LINK_EXTENSIONS
@@ -747,7 +747,7 @@ NB_MODULE(DUCKDB_PYTHON_LIB_NAME, m) { // NOLINT
 	DuckDBPyConnection::Initialize(m);
 
 	m.doc() = "DuckDB is an embeddable SQL OLAP Database Management System";
-	m.attr("__package__") = "duckdb";
+	m.attr("__package__") = "haybarn";
 	m.attr("__version__") = std::string(DuckDB::LibraryVersion()).substr(1);
 	m.attr("__standard_vector_size__") = DuckDB::StandardVectorSize();
 	m.attr("__git_revision__") = DuckDB::SourceID();

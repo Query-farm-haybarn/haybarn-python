@@ -4,8 +4,8 @@ import textwrap
 
 import pytest
 
-import duckdb
-from duckdb import sqltypes
+import haybarn
+from haybarn import sqltypes
 
 THREAD_COUNTS_SCRIPT = """
     import os
@@ -14,12 +14,12 @@ THREAD_COUNTS_SCRIPT = """
         return len(os.listdir("/proc/self/task"))
 
     before_import = thread_count()
-    import duckdb
-    from duckdb import sqltypes
+    import haybarn
+    from haybarn import sqltypes
 
     sqltypes.BIGINT == "int8"
     after_import = thread_count()
-    duckdb.execute("SELECT 42").fetchall()
+    haybarn.execute("SELECT 42").fetchall()
     print(before_import, after_import, thread_count())
 """
 
@@ -92,8 +92,8 @@ class TestTypeObjectMatching:
         duckdb_cursor.execute(f"SELECT NULL::{sql_type} AS c")
         column_type = duckdb_cursor.description[0][1]
         assert str(column_type) == sql_type
-        assert (column_type == getattr(duckdb, type_object)) is expected
-        assert (getattr(duckdb, type_object) == column_type) is expected
+        assert (column_type == getattr(haybarn, type_object)) is expected
+        assert (getattr(haybarn, type_object) == column_type) is expected
 
     @pytest.mark.parametrize(
         ("sql_type", "category"),
@@ -152,27 +152,27 @@ class TestTypeObjectMatching:
     def test_each_type_belongs_to_exactly_its_category(self, duckdb_cursor, sql_type, category):
         duckdb_cursor.execute(f"SELECT NULL::{sql_type} AS c")
         column_type = duckdb_cursor.description[0][1]
-        matches = {name for name in ("STRING", "NUMBER", "DATETIME", "BINARY") if column_type == getattr(duckdb, name)}
+        matches = {name for name in ("STRING", "NUMBER", "DATETIME", "BINARY") if column_type == getattr(haybarn, name)}
         assert matches == ({category} if category else set())
-        assert column_type != duckdb.ROWID
+        assert column_type != haybarn.ROWID
 
     def test_an_aggregate_state_matches_by_the_id_of_its_value(self, duckdb_cursor):
         duckdb_cursor.execute("SELECT count(*) EXPORT_STATE AS c FROM range(3)")
         column_type = duckdb_cursor.description[0][1]
         assert str(column_type) == "AGGREGATE_STATE"
-        assert column_type == duckdb.NUMBER
+        assert column_type == haybarn.NUMBER
 
     def test_the_categories_hold_no_type_instances(self):
-        from duckdb import _dbapi_type_object
+        from haybarn import _dbapi_type_object
 
-        categories = [duckdb.STRING, duckdb.NUMBER, duckdb.DATETIME, duckdb.BINARY]
+        categories = [haybarn.STRING, haybarn.NUMBER, haybarn.DATETIME, haybarn.BINARY]
         held = [*vars(_dbapi_type_object).values(), *(value for c in categories for value in vars(c).values())]
         assert not any(isinstance(value, sqltypes.DuckDBPyType) for value in held)
         assert all(isinstance(type_id, str) for c in categories for type_id in c.type_ids)
 
     def test_type_ids_are_copied(self, duckdb_cursor):
         type_ids = {"decimal"}
-        category = duckdb.DBAPITypeObject(type_ids)
+        category = haybarn.DBAPITypeObject(type_ids)
         type_ids.add("varchar")
         duckdb_cursor.execute("SELECT NULL::DECIMAL(10,2) AS c")
         assert category != sqltypes.VARCHAR
@@ -180,10 +180,10 @@ class TestTypeObjectMatching:
 
     def test_type_ids_cannot_be_a_bare_string(self):
         with pytest.raises(TypeError):
-            duckdb.DBAPITypeObject("decimal")
+            haybarn.DBAPITypeObject("decimal")
 
     def test_number_repr(self):
-        assert repr(duckdb.NUMBER) == (
+        assert repr(haybarn.NUMBER) == (
             "<DBAPITypeObject [BIGINT,BIGNUM,DECIMAL,DOUBLE,FLOAT,HUGEINT,INTEGER,SMALLINT,TINYINT,UBIGINT,UHUGEINT,"
             "UINTEGER,USMALLINT,UTINYINT]>"
         )
@@ -194,8 +194,8 @@ class TestTypeComparisonIsQuiet:
         duckdb_cursor.execute("SELECT 'a'::VARCHAR AS c")
         column_type = duckdb_cursor.description[0][1]
         capfd.readouterr()
-        assert column_type == duckdb.STRING
-        assert duckdb.STRING == column_type  # noqa: SIM300
+        assert column_type == haybarn.STRING
+        assert haybarn.STRING == column_type  # noqa: SIM300
         assert capfd.readouterr().err == ""
 
     @pytest.mark.parametrize(
@@ -256,17 +256,17 @@ class TestTypeEquality:
 TWO_THREADS_FIRST_USE_SCRIPT = """
     import sys
     import threading
-    import duckdb
+    import haybarn
 
     if "close_first" in sys.argv:
-        duckdb.close()
+        haybarn.close()
     barrier = threading.Barrier(2)
     errors = []
 
     def worker():
         barrier.wait()
         try:
-            assert duckdb.cursor().execute("SELECT 1").fetchall() == [(1,)]
+            assert haybarn.cursor().execute("SELECT 1").fetchall() == [(1,)]
         except BaseException as error:
             errors.append(repr(error))
 
@@ -284,7 +284,7 @@ EIGHT_THREADS_FIRST_USE_SCRIPT = """
     import sys
     import threading
     import time
-    import duckdb
+    import haybarn
 
     count_threads = "count_threads" in sys.argv
 
@@ -306,7 +306,7 @@ EIGHT_THREADS_FIRST_USE_SCRIPT = """
 
     if count_threads:
         before_probe = thread_count()
-        probe = duckdb.connect()
+        probe = haybarn.connect()
         one_database = thread_count() - before_probe
         probe.close()
         del probe
@@ -321,7 +321,7 @@ EIGHT_THREADS_FIRST_USE_SCRIPT = """
     def worker(i):
         barrier.wait()
         try:
-            connections[i] = duckdb.default_connection()
+            connections[i] = haybarn.default_connection()
             results[i] = connections[i].cursor().execute("SELECT 1").fetchall()
         except BaseException as error:
             errors.append(repr(error))
@@ -333,7 +333,7 @@ EIGHT_THREADS_FIRST_USE_SCRIPT = """
         thread.join()
     assert not errors, errors
     assert results == [[(1,)]] * count, results
-    default = duckdb.default_connection()
+    default = haybarn.default_connection()
     assert all(connection is default for connection in connections)
     if count_threads:
         remaining = settled_thread_count()
@@ -343,19 +343,19 @@ EIGHT_THREADS_FIRST_USE_SCRIPT = """
 
 REPLACE_WHILE_FETCHING_SCRIPT = """
     import threading
-    import duckdb
+    import haybarn
 
     errors = []
     for _ in range(20):
-        duckdb.execute("SELECT 1").fetchall()
-        replacement = duckdb.connect()
+        haybarn.execute("SELECT 1").fetchall()
+        replacement = haybarn.connect()
         stop = threading.Event()
         fetching = threading.Event()
 
         def fetch_default(stop=stop, fetching=fetching):
             try:
                 while not stop.is_set():
-                    duckdb.default_connection()
+                    haybarn.default_connection()
                     fetching.set()
             except BaseException as error:
                 errors.append(repr(error))
@@ -364,7 +364,7 @@ REPLACE_WHILE_FETCHING_SCRIPT = """
         fetcher = threading.Thread(target=fetch_default, daemon=True)
         fetcher.start()
         fetching.wait()
-        duckdb.set_default_connection(replacement)
+        haybarn.set_default_connection(replacement)
         del replacement
         stop.set()
         fetcher.join()
@@ -374,14 +374,14 @@ REPLACE_WHILE_FETCHING_SCRIPT = """
 
 EXIT_WHILE_A_DAEMON_FETCHES_SCRIPT = """
     import threading
-    import duckdb
+    import haybarn
 
-    duckdb.set_default_connection(duckdb.connect(config={"threads": 1, "async_threads": 0}))
+    haybarn.set_default_connection(haybarn.connect(config={"threads": 1, "async_threads": 0}))
     looping = threading.Event()
 
     def fetch_forever():
         while True:
-            duckdb.default_connection()
+            haybarn.default_connection()
             looping.set()
 
     threading.Thread(target=fetch_forever, daemon=True).start()
@@ -390,8 +390,8 @@ EXIT_WHILE_A_DAEMON_FETCHES_SCRIPT = """
 """
 
 FINALIZER_FETCHES_THE_DEFAULT_SCRIPT = """
-    import duckdb
-    from duckdb import sqltypes
+    import haybarn
+    from haybarn import sqltypes
 
     fetched = []
 
@@ -400,14 +400,14 @@ FINALIZER_FETCHES_THE_DEFAULT_SCRIPT = """
             return x
 
         def __del__(self):
-            fetched.append(duckdb.default_connection())
+            fetched.append(haybarn.default_connection())
 
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.create_function("identity", Identity(), [sqltypes.BIGINT], sqltypes.BIGINT)
-    duckdb.set_default_connection(con)
+    haybarn.set_default_connection(con)
     del con
-    replacement = duckdb.connect()
-    duckdb.set_default_connection(replacement)
+    replacement = haybarn.connect()
+    haybarn.set_default_connection(replacement)
     assert len(fetched) == 1, fetched
     assert fetched[0] is replacement
     print("SUCCESS")
@@ -416,13 +416,13 @@ FINALIZER_FETCHES_THE_DEFAULT_SCRIPT = """
 SHUTDOWN_FINALIZER_SCRIPT = """
     import os
     import time
-    import duckdb
-    from duckdb import sqltypes
+    import haybarn
+    from haybarn import sqltypes
 
     def thread_count(listdir=os.listdir):
         return len(listdir("/proc/self/task"))
 
-    def fetch(default_connection=duckdb.default_connection, refused=duckdb.ConnectionException):
+    def fetch(default_connection=haybarn.default_connection, refused=haybarn.ConnectionException):
         try:
             default_connection()
         except refused:
@@ -439,8 +439,8 @@ SHUTDOWN_FINALIZER_SCRIPT = """
             write=os.write,
             fetch=fetch,
             thread_count=thread_count,
-            connect=duckdb.connect,
-            set_default_connection=duckdb.set_default_connection,
+            connect=haybarn.connect,
+            set_default_connection=haybarn.set_default_connection,
             sleep=time.sleep,
             monotonic=time.monotonic,
         ):
@@ -456,20 +456,20 @@ SHUTDOWN_FINALIZER_SCRIPT = """
                 after = thread_count()
             write(1, f"{first} {second} {before} {after}\\n".encode())
 
-    duckdb.default_connection().create_function("identity", Identity(), [sqltypes.BIGINT], sqltypes.BIGINT)
+    haybarn.default_connection().create_function("identity", Identity(), [sqltypes.BIGINT], sqltypes.BIGINT)
     print("STARTED")
 """
 
 RECREATED_AFTER_RELEASE_SCRIPT = """
     import sys
-    import duckdb
+    import haybarn
 
-    before = duckdb.default_connection()
-    del duckdb._clean_default_connection
-    del sys.modules["_duckdb"]._clean_default_connection
-    after = duckdb.default_connection()
+    before = haybarn.default_connection()
+    del haybarn._clean_default_connection
+    del sys.modules["_haybarn"]._clean_default_connection
+    after = haybarn.default_connection()
     assert after is not before
-    assert duckdb.sql("SELECT 42").fetchall() == [(42,)]
+    assert haybarn.sql("SELECT 42").fetchall() == [(42,)]
     print("SUCCESS")
 """
 

@@ -551,34 +551,34 @@
         "name": "LazyFrame",
         "children": []
     },
-    "duckdb": {
+    "haybarn": {
         "type": "module",
-        "full_path": "duckdb",
-        "name": "duckdb",
+        "full_path": "haybarn",
+        "name": "haybarn",
         "children": [
-            "duckdb.filesystem",
-            "duckdb.Value",
-            "duckdb.polars_io"
+            "haybarn.filesystem",
+            "haybarn.Value",
+            "haybarn.polars_io"
         ]
     },
-    "duckdb.filesystem": {
+    "haybarn.filesystem": {
         "type": "module",
-        "full_path": "duckdb.filesystem",
+        "full_path": "haybarn.filesystem",
         "name": "filesystem",
         "children": [
-            "duckdb.filesystem.ModifiedMemoryFileSystem"
+            "haybarn.filesystem.ModifiedMemoryFileSystem"
         ],
         "required": false
     },
-    "duckdb.filesystem.ModifiedMemoryFileSystem": {
+    "haybarn.filesystem.ModifiedMemoryFileSystem": {
         "type": "attribute",
-        "full_path": "duckdb.filesystem.ModifiedMemoryFileSystem",
+        "full_path": "haybarn.filesystem.ModifiedMemoryFileSystem",
         "name": "ModifiedMemoryFileSystem",
         "children": []
     },
-    "duckdb.Value": {
+    "haybarn.Value": {
         "type": "attribute",
-        "full_path": "duckdb.Value",
+        "full_path": "haybarn.Value",
         "name": "Value",
         "children": []
     },
@@ -714,18 +714,18 @@
         "name": "MessageReader",
         "children": []
     },
-    "duckdb.polars_io": {
+    "haybarn.polars_io": {
         "type": "module",
-        "full_path": "duckdb.polars_io",
+        "full_path": "haybarn.polars_io",
         "name": "polars_io",
         "children": [
-            "duckdb.polars_io.duckdb_source"
+            "haybarn.polars_io.duckdb_source"
         ],
         "required": false
     },
-    "duckdb.polars_io.duckdb_source": {
+    "haybarn.polars_io.duckdb_source": {
         "type": "attribute",
-        "full_path": "duckdb.polars_io.duckdb_source",
+        "full_path": "haybarn.polars_io.duckdb_source",
         "name": "duckdb_source",
         "children": [],
         "required": false

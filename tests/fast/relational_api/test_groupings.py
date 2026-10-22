@@ -1,11 +1,11 @@
 import pytest
 
-import duckdb
+import haybarn
 
 
 @pytest.fixture
 def con():
-    conn = duckdb.connect()
+    conn = haybarn.connect()
     conn.execute(
         """
 		create table tbl as (SELECT * FROM (VALUES

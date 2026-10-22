@@ -19,7 +19,7 @@ import time
 import pytest
 from conftest import PANDAS_GE_3
 
-import duckdb
+import haybarn
 
 pa = pytest.importorskip("pyarrow")
 pc = pytest.importorskip("pyarrow.compute")
@@ -112,7 +112,7 @@ class TestThreads:
     @pytest.mark.parametrize("source", [_one_chunk_param(name) for name in ONE_CHUNK_SOURCES])
     def test_a_one_chunk_source_is_read_by_several_threads(self, source):
         obj = ONE_CHUNK_SOURCES[source](arange(LARGE))
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             install_thread_witness(con)
             con.register("src", obj)
             query = reading_threads(con, "src")
@@ -122,7 +122,7 @@ class TestThreads:
     def test_a_large_batch_after_a_small_one_is_read_by_several_threads(self):
         schema = pa.schema([("a", pa.int64())])
         batches = [pa.record_batch([pa.array(arange(rows))], schema=schema) for rows in (10, LARGE)]
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             install_thread_witness(con)
             con.register("src", pa.RecordBatchReader.from_batches(schema, batches))
             query = reading_threads(con, "src")
@@ -132,7 +132,7 @@ class TestThreads:
     @pytest.mark.timeout(60)
     def test_a_large_batch_of_a_stream_pulled_under_the_gil_is_read_by_several_threads(self):
         source = core.PythonStreamSource(pa.table({"a": arange(LARGE)}), max_chunksize=LARGE)
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             install_thread_witness(con)
             con._register_arrow_source("src", source)
             query = reading_threads(con, "src")
@@ -141,7 +141,7 @@ class TestThreads:
     @pytest.mark.timeout(60)
     def test_a_numpy_backed_frame_is_read_by_several_threads(self):
         frame = _pandas().DataFrame({"a": arange(LARGE)})
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             install_thread_witness(con)
             con.register("src", frame)
             query = reading_threads(con, "src")
@@ -151,7 +151,7 @@ class TestThreads:
     @pytest.mark.parametrize("source", ["table", "array"])
     def test_a_batch_shorter_than_two_ranges_is_one_range(self, source):
         obj = ONE_CHUNK_SOURCES[source](arange(2 * RANGE_ROWS - 1))
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             install_thread_witness(con)
             con.register("src", obj)
             query = reading_threads(con, "src")
@@ -162,7 +162,7 @@ class TestThreads:
     @pytest.mark.parametrize("rows", [2 * RANGE_ROWS, 3 * RANGE_ROWS - 1], ids=["two_ranges", "two_and_a_remainder"])
     def test_the_last_range_takes_the_remainder(self, source, rows):
         obj = ONE_CHUNK_SOURCES[source](arange(rows))
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             install_thread_witness(con)
             con.register("src", obj)
             query = reading_threads(con, "src")
@@ -214,7 +214,7 @@ class TestOrder:
     def test_rows_keep_their_order_across_range_and_batch_boundaries(self, source):
         obj = ORDER_SOURCES[source]()
         expected = arange(_total(source))
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", obj)
             query = _as_n(con)
             assert np.array_equal(con.execute(query).fetchnumpy()["n"], expected)
@@ -224,7 +224,7 @@ class TestOrder:
     def test_row_numbers_follow_the_rows_across_range_and_batch_boundaries(self, source):
         obj = ORDER_SOURCES[source]()
         expected = arange(_total(source))
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", obj)
             query = f"SELECT row_number() OVER () AS r, n FROM ({_as_n(con)})"
             ranked = con.execute(query).fetchnumpy()
@@ -235,7 +235,7 @@ class TestOrder:
     @pytest.mark.parametrize("source", list(ORDER_SOURCES))
     def test_a_limit_takes_the_first_rows(self, source):
         obj = ORDER_SOURCES[source]()
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", obj)
             query = f"{_as_n(con)} LIMIT 5"
             assert con.execute(query).fetchall() == [(i,) for i in range(5)]
@@ -245,7 +245,7 @@ class TestOrder:
     def test_a_table_created_from_the_rows_keeps_their_order(self, source):
         obj = ORDER_SOURCES[source]()
         expected = arange(_total(source))
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", obj)
             con.execute(f"CREATE TABLE copied AS {_as_n(con)}")
             assert np.array_equal(con.execute("SELECT n FROM copied").fetchnumpy()["n"], expected)
@@ -257,7 +257,7 @@ class TestOrder:
     def test_limit_and_offset_inside_one_large_batch(self, offset):
         table = pa.table({"n": arange(LARGE)})
         expected = [(n,) for n in range(offset, min(offset + 3, LARGE))]
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", table)
             assert con.execute(f"SELECT n FROM src LIMIT 3 OFFSET {offset}").fetchall() == expected
 
@@ -266,7 +266,7 @@ class TestOrder:
         sizes = [0, 5, 0, 500_000, 0, 1, 2 * RANGE_ROWS, 3, 0]
         table = _batches_of(sizes)
         expected = arange(sum(sizes))
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", pa.RecordBatchReader.from_batches(table.schema, table.to_batches()))
             assert np.array_equal(con.execute("SELECT n FROM src").fetchnumpy()["n"], expected)
 
@@ -302,7 +302,7 @@ class TestDictionariesAndRunEnds:
         expected = [(value,) for decoded, _ in _dictionary_batches(0) for value in decoded]
         schema = pa.schema([("d", pa.dictionary(pa.int32(), pa.string()))])
         reader = pa.RecordBatchReader.from_batches(schema, (batch for _, batch in _dictionary_batches(0)))
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con.register("src", reader)
             assert con.execute("SELECT d FROM src").fetchall() == expected
 
@@ -312,7 +312,7 @@ class TestDictionariesAndRunEnds:
         expected = np.concatenate([values for values, _ in _run_end_batches()])
         schema = next(_run_end_batches())[1].schema
         reader = pa.RecordBatchReader.from_batches(schema, (batch for _, batch in _run_end_batches()))
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con.register("src", reader)
             assert np.array_equal(con.execute("SELECT r FROM src").fetchnumpy()["r"], expected)
 
@@ -337,7 +337,7 @@ class TestDictionariesAndRunEnds:
             con.execute(query.format(name)).fetchall()
             return time.perf_counter() - start
 
-        with duckdb.connect(config={"threads": 1}) as con:
+        with haybarn.connect(config={"threads": 1}) as con:
             con._register_arrow_source("whole", core.TableSource(whole))
             con._register_arrow_source("split", core.TableSource(split))
             assert con.execute(query.format("whole")).fetchall() == [(expected,)]
@@ -527,7 +527,7 @@ class TestLayouts:
     @pytest.mark.parametrize("layout", list(LAYOUTS))
     def test_nested_layouts_read_the_same_whole_and_split(self, layout, threads):
         obj, expected = LAYOUTS[layout]()
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con.register("src", obj)
             assert con.execute("SELECT * FROM src").fetchall() == expected
 
@@ -536,9 +536,9 @@ class TestLayouts:
     @pytest.mark.parametrize("layout", list(REFUSED))
     def test_a_refused_layout_is_refused_the_same_when_split(self, layout, threads):
         obj = REFUSED[layout]()
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con.register("src", obj)
-            with pytest.raises(duckdb.InvalidInputException, match=re.escape(STRUCT_OFFSET_REFUSAL)):
+            with pytest.raises(haybarn.InvalidInputException, match=re.escape(STRUCT_OFFSET_REFUSAL)):
                 con.execute("SELECT * FROM src").fetchall()
 
 
@@ -606,7 +606,7 @@ class TestReleases:
     @RELEASE_SOURCES
     def test_a_large_batch_is_released_once(self, release_table, source_class, query, threads):
         source = source_class(release_table, max_chunksize=LARGE_BATCH)
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con._register_arrow_source("t", source)
             con.execute(query).fetchall()
             assert source.counts() == [(0, 0, 1)]
@@ -624,10 +624,10 @@ class TestReleases:
             return values
 
         source = source_class(release_table, max_chunksize=LARGE_BATCH)
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con.create_function("fail_at", fail_at, ["BIGINT"], "BIGINT", type="arrow")
             con._register_arrow_source("t", source)
-            with pytest.raises(duckdb.Error, match="the function gave up"):
+            with pytest.raises(haybarn.Error, match="the function gave up"):
                 con.execute("SELECT sum(fail_at(i)) FROM t").fetchall()
             assert eventually(lambda: source.counts() == [(0, 0, 1)]), source.counts()
 
@@ -647,7 +647,7 @@ class TestReleases:
         from _pushdown_helpers import eventually
 
         source = source_class(release_table, max_chunksize=LARGE_BATCH)
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con._register_arrow_source("t", source)
             result = con.execute("SELECT i, s FROM t")
             result.fetchmany(10)
@@ -659,7 +659,7 @@ class TestReleases:
     def test_a_projected_column_of_large_batches_keeps_its_values(self, release_table, threads):
         source = core.PythonStreamSource(release_table, max_chunksize=LARGE_BATCH)
         expected = [(value,) for value in release_table["s"].to_pylist()]
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con._register_arrow_source("t", source)
             assert con.execute("SELECT s FROM t").fetchall() == expected
 
@@ -683,9 +683,9 @@ class TestReleases:
         from _pushdown_helpers import eventually
 
         source = source_class(release_table, max_chunksize=LARGE_BATCH, corrupt=corrupt)
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con._register_arrow_source("t", source)
-            with pytest.raises(duckdb.InvalidInputException, match=re.escape(message)):
+            with pytest.raises(haybarn.InvalidInputException, match=re.escape(message)):
                 con.execute("SELECT * FROM t").fetchall()
             assert eventually(lambda: source.counts() == [(0, 0, 1)]), source.counts()
 
@@ -698,10 +698,10 @@ class TestReleases:
             raise OSError(msg)
 
         reader = pa.RecordBatchReader.from_batches(pa.schema([("n", pa.int64())]), batches())
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con._register_arrow_source("r", core.ReaderSource(reader))
             with pytest.raises(
-                duckdb.InvalidInputException,
+                haybarn.InvalidInputException,
                 match=r"reading the stream registered as 'r' failed: .*the producer gave up",
             ):
                 con.execute("SELECT sum(n) FROM r").fetchall()
@@ -743,7 +743,7 @@ class TestMemory:
 
         query = "SELECT count(*), sum(strlen(payload)), sum(slow_identity(id)) FROM source"
         batch_bytes = _allocated_bytes_of_one_readahead_batch()
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.create_function("slow_identity", _slow_identity, ["BIGINT"], "BIGINT", type="arrow")
             reader = pa.RecordBatchReader.from_batches(READAHEAD_SCHEMA, _large_readahead_batches())
             con._register_arrow_source("source", core.ReaderSource(reader))
@@ -760,7 +760,7 @@ class TestMemory:
         from _pushdown_helpers import peak_arrow_bytes_while
 
         table = pa.table({"n": arange(LARGE), "s": _text(arange(LARGE))})
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", table)
 
             def read_for_a_while():
@@ -779,7 +779,7 @@ class TestUnchanged:
     @pytest.mark.parametrize("source", ["table", "array", "polars_frame"])
     def test_the_row_estimate_is_unchanged(self, source):
         obj = ONE_CHUNK_SOURCES[source](arange(LARGE))
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", obj)
             assert "~1,000,003 rows" in con.execute("EXPLAIN SELECT * FROM src").fetchall()[0][1]
 
@@ -787,7 +787,7 @@ class TestUnchanged:
     def test_ctas_from_a_one_chunk_source_writes_full_row_groups(self):
         table = pa.table({"n": arange(LARGE)})
         expected = [RANGE_ROWS] * (LARGE // RANGE_ROWS) + [LARGE % RANGE_ROWS]
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.register("src", table)
             con.execute("CREATE TABLE copied AS SELECT * FROM src")
             sizes = con.execute(
@@ -801,7 +801,7 @@ class TestVerifyParallelism:
     @pytest.mark.timeout(60)
     def test_verify_parallelism_splits_a_one_chunk_source_into_vectors(self):
         table = pa.table({"a": arange(3 * 2048)})
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             install_thread_witness(con)
             con.execute("PRAGMA verify_parallelism")
             con.register("src", table)
@@ -812,7 +812,7 @@ class TestVerifyParallelism:
     @pytest.mark.timeout(60)
     def test_verify_parallelism_keeps_the_order_of_a_one_chunk_source(self):
         table = pa.table({"n": arange(LARGE)})
-        with duckdb.connect(config={"threads": THREADS}) as con:
+        with haybarn.connect(config={"threads": THREADS}) as con:
             con.execute("PRAGMA verify_parallelism")
             con.register("src", table)
             assert np.array_equal(con.execute("SELECT n FROM src").fetchnumpy()["n"], arange(LARGE))
@@ -842,7 +842,7 @@ def _scan_seconds(obj, udf, hold):
         if hold
         else "SELECT count(x), sum(i) FROM src"
     )
-    with duckdb.connect(config={"threads": THREADS}) as con:
+    with haybarn.connect(config={"threads": THREADS}) as con:
         con.create_function("hold_gil", udf, ["BIGINT"], "BIGINT")
         con.register("src", obj)
         con.execute("PRAGMA enable_profiling = 'no_output'")
@@ -905,7 +905,7 @@ def _list_of_dictionary(empty, valued):
 class TestEngineConversions:
     @pytest.mark.xfail(
         strict=True,
-        raises=duckdb.InternalException,
+        raises=haybarn.InternalException,
         reason="the engine fails to read a dictionary of structs that has no null value: Vector::SetSize out of range",
     )
     @pytest.mark.parametrize("threads", [1, THREADS])
@@ -913,13 +913,13 @@ class TestEngineConversions:
     def test_a_struct_dictionary_without_a_null_value_reads_its_values(self, indices, threads):
         column = pa.DictionaryArray.from_arrays(pa.array(indices, pa.int8()), pa.array(STRUCT_VALUES))
         expected = [(None if index is None else STRUCT_VALUES[index],) for index in indices]
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con.register("src", pa.table({"d": column}))
             assert con.execute("SELECT d FROM src").fetchall() == expected
 
     @pytest.mark.xfail(
         strict=True,
-        raises=duckdb.InternalException,
+        raises=haybarn.InternalException,
         reason=(
             "the engine fails to read a list of dictionaries whose first vector holds only empty lists: it "
             "dereferences a dictionary it never built"
@@ -931,6 +931,6 @@ class TestEngineConversions:
     def test_a_list_of_dictionaries_after_a_vector_of_empty_lists_reads_its_lists(self, empty, valued, threads):
         column = _list_of_dictionary(empty, valued)
         expected = [(len(column), pc.sum(pc.list_value_length(column)).as_py())]
-        with duckdb.connect(config={"threads": threads}) as con:
+        with haybarn.connect(config={"threads": threads}) as con:
             con.register("src", pa.table({"l": column}))
             assert con.execute("SELECT count(*), sum(len(l)) FROM src").fetchall() == expected

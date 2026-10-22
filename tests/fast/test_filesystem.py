@@ -7,8 +7,8 @@ from shutil import copyfileobj
 
 import pytest
 
-import duckdb
-from duckdb import DuckDBPyConnection, InvalidInputException
+import haybarn
+from haybarn import DuckDBPyConnection, InvalidInputException
 
 fsspec = pytest.importorskip("fsspec", "2022.11.0")
 # fsspec no longer pulls in its implementations submodules on package import
@@ -36,7 +36,7 @@ def intercept(monkeypatch: pytest.MonkeyPatch, obj: object, name: str) -> list[s
 
 @pytest.fixture
 def duckdb_cursor():
-    with duckdb.connect() as conn:
+    with haybarn.connect() as conn:
         yield conn
 
 
@@ -176,7 +176,7 @@ class TestPythonFilesystem:
         db_path = tmp_path / "hello.db"
 
         # setup a database to attach later
-        with duckdb.connect(str(db_path)) as conn:
+        with haybarn.connect(str(db_path)) as conn:
             conn.execute(
                 """
                 CREATE TABLE t (id int);
@@ -186,7 +186,7 @@ class TestPythonFilesystem:
 
         assert db_path.exists()
 
-        with duckdb.connect() as conn:
+        with haybarn.connect() as conn:
             fs = fsspec.filesystem("file", skip_instance_cache=True)
             write_errors = intercept(monkeypatch, fsspec.implementations.local.LocalFileOpener, "write")
             conn.register_filesystem(fs)
@@ -214,7 +214,7 @@ class TestPythonFilesystem:
         duckdb_cursor.execute("CREATE TABLE t AS SELECT range AS i, range % 3 AS p FROM range(30)")
         duckdb_cursor.execute("COPY t TO 'memory://root' (FORMAT parquet, PARTITION_BY (p))")
 
-        with pytest.raises(duckdb.IOException, match="is not empty"):
+        with pytest.raises(haybarn.IOException, match="is not empty"):
             duckdb_cursor.execute("COPY t TO 'memory://root' (FORMAT parquet, PARTITION_BY (p))")
 
         duckdb_cursor.execute(
@@ -228,7 +228,7 @@ class TestPythonFilesystem:
         copy = "COPY (SELECT range AS i FROM range(10)) TO 'memory://flat' (FORMAT parquet, FILE_SIZE_BYTES 1000{})"
         duckdb_cursor.execute(copy.format(""))
 
-        with pytest.raises(duckdb.IOException, match="is not empty"):
+        with pytest.raises(haybarn.IOException, match="is not empty"):
             duckdb_cursor.execute(copy.format(""))
 
         duckdb_cursor.execute(copy.format(", OVERWRITE"))
@@ -320,7 +320,7 @@ class TestPythonFilesystem:
         table2_path = tmp_path / "table2.parquet"
         pq.write_table(table2, table2_path)
 
-        c = duckdb.connect()
+        c = haybarn.connect()
         c.register_filesystem(fsspec.implementations.local.LocalFileSystem())
 
         q = f"SELECT * FROM read_parquet('file:///{tmp_path.as_posix().lstrip('/')}/table*.parquet', union_by_name = TRUE) ORDER BY time DESC LIMIT 1"  # noqa: E501
@@ -339,7 +339,7 @@ class TestPythonFilesystem:
             def unstrip_protocol(self, name):
                 return f"file://{name}"
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register_filesystem(WindowsLocalFileSystem())
         assert sorted(con.sql("SELECT file FROM glob('file:///C:/data/table*.parquet')").fetchall()) == [
             ("file:///C:/data/table1.parquet",),
@@ -376,7 +376,7 @@ class TestNanobindFilesystemHardening:
 
         monkeypatch.setattr(MemoryFile, "read", greedy_read)
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register_filesystem(memory)
         # Must not overflow (ASan) and must count correctly despite the injected trailing bytes.
         query = "SELECT count(*), sum(column0) FROM read_csv('memory://big.csv', sep=';', header=false)"
@@ -393,7 +393,7 @@ class TestNanobindFilesystemHardening:
         import gc
         import io
 
-        from duckdb.filesystem import ModifiedMemoryFileSystem
+        from haybarn.filesystem import ModifiedMemoryFileSystem
 
         def raising_delete(self, *args, **kwargs):
             msg = "simulated missing entry"
@@ -401,7 +401,7 @@ class TestNanobindFilesystemHardening:
 
         monkeypatch.setattr(ModifiedMemoryFileSystem, "delete", raising_delete, raising=False)
 
-        con = duckdb.connect()
+        con = haybarn.connect()
         rel = con.read_csv(io.BytesIO(b"a,b\n1,2\n3,4\n"))
         assert rel.fetchall() == [(1, 2), (3, 4)]
         del rel
@@ -415,11 +415,11 @@ class TestNanobindFilesystemHardening:
 
         check_ was missing the try/catch its sibling AbstractFileSystem::check_ has; nanobind can invoke
         it from noexcept caster/isinstance contexts where a throw would std::terminate. The throwing path
-        (a failed duckdb.filesystem import or IsInstance == -1) cannot be induced from Python without
+        (a failed haybarn.filesystem import or IsInstance == -1) cannot be induced from Python without
         breaking the module itself, so this only asserts the module stays importable; the fix is verified
         by compile + sibling parity and re-checked under ASan by the reviewer.
         """
-        from duckdb.filesystem import ModifiedMemoryFileSystem
+        from haybarn.filesystem import ModifiedMemoryFileSystem
 
         assert ModifiedMemoryFileSystem is not None
 
@@ -590,7 +590,7 @@ class TestFilesystemModificationTime:
     ):
         duckdb_cursor.register_filesystem(filesystem_with_blobs(filesystem_class))
 
-        with pytest.raises(duckdb.NotImplementedException, match=surfaced):
+        with pytest.raises(haybarn.NotImplementedException, match=surfaced):
             duckdb_cursor.sql(ONE_BLOB_METADATA_ONLY).fetchall()
 
     @pytest.mark.parametrize("query", [ONE_BLOB_WITH_CONTENT, ONE_BLOB_METADATA_ONLY, ALL_BLOBS_WITH_CONTENT])
@@ -605,17 +605,17 @@ class TestFilesystemModificationTime:
         filesystem_class = memory_filesystem_whose_modified_raises(error_type, message)
         duckdb_cursor.register_filesystem(filesystem_with_blobs(filesystem_class))
 
-        with pytest.raises(duckdb.Error, match=surfaced) as raised:
+        with pytest.raises(haybarn.Error, match=surfaced) as raised:
             duckdb_cursor.sql(query).fetchall()
-        assert not isinstance(raised.value, duckdb.NotImplementedException)
+        assert not isinstance(raised.value, haybarn.NotImplementedException)
 
     @pytest.mark.parametrize("query", [ONE_BLOB_WITH_CONTENT, ONE_BLOB_METADATA_ONLY])
     def test_a_time_whose_timestamp_raises_not_implemented_is_not_translated(self, duckdb_cursor, query):
         duckdb_cursor.register_filesystem(filesystem_with_blobs(MemoryFileSystemWithUnstampedModified))
 
-        with pytest.raises(duckdb.Error, match=r"NotImplementedError: no timestamp for this time") as raised:
+        with pytest.raises(haybarn.Error, match=r"NotImplementedError: no timestamp for this time") as raised:
             duckdb_cursor.sql(query).fetchall()
-        assert not isinstance(raised.value, duckdb.NotImplementedException)
+        assert not isinstance(raised.value, haybarn.NotImplementedException)
 
     @pytest.mark.xfail(strict=True, reason=PARQUET)
     def test_read_parquet_works_when_the_filesystem_has_no_modified(self, duckdb_cursor):
