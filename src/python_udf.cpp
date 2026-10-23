@@ -240,7 +240,7 @@ static scalar_function_t CreateVectorizedFunction(PyObject *function, PythonExce
 	// Through the capture of the lambda, we have access to the function pointer
 	// We just need to make sure that it doesn't get garbage collected
 	scalar_function_t func = [=](DataChunk &input, ExpressionState &state, Vector &result) -> void {
-		nb::gil_scoped_acquire gil;
+		PyUtil::GilAcquireOrInterrupt gil;
 		std::optional<engine::CallbackScope> callback;
 		if (state.HasContext()) {
 			callback.emplace(state.GetContext());
@@ -381,7 +381,7 @@ static scalar_function_t CreateNativeFunction(PyObject *function, PythonExceptio
 	// Through the capture of the lambda, we have access to the function pointer
 	// We just need to make sure that it doesn't get garbage collected
 	scalar_function_t func = [=](DataChunk &input, ExpressionState &state, Vector &result) -> void { // NOLINT
-		nb::gil_scoped_acquire gil;
+		PyUtil::GilAcquireOrInterrupt gil;
 		std::optional<engine::CallbackScope> callback;
 		if (state.HasContext()) {
 			callback.emplace(state.GetContext());

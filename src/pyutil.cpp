@@ -1,9 +1,34 @@
 #include "duckdb_python/pyutil.hpp"
 
 #include "duckdb/common/exception.hpp"
+#include "duckdb/common/atomic.hpp"
 #include "duckdb_python/pyconnection/pyconnection.hpp"
 
 namespace duckdb {
+
+namespace {
+
+//! The thread that ran the exit hook, which is the one finalizing the interpreter; 0 until the hook ran
+atomic<unsigned long> finalizing_thread {0};
+
+} // namespace
+
+bool PyUtil::CanEnterInterpreter() {
+	// Py_IsInitialized turns false as finalization starts, before the thread states of other threads are removed
+	if (Py_IsInitialized()) {
+		return true;
+	}
+	const auto finalizing = finalizing_thread.load();
+	if (finalizing == 0) {
+		// Finalizing without the exit hook having run: only a thread with a thread state can be the one finalizing
+		return PyGILState_GetThisThreadState() != nullptr;
+	}
+	return finalizing == PyThread_get_thread_ident();
+}
+
+void PyUtil::SetFinalizingThread() {
+	finalizing_thread = PyThread_get_thread_ident();
+}
 
 #ifndef Py_LIMITED_API
 bool PyUtil::GilCheck() {

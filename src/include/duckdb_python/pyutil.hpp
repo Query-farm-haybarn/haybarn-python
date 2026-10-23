@@ -4,7 +4,9 @@
 #include <nanobind/stl/string.h>
 #include "duckdb/common/types.hpp"
 #include "duckdb/common/helper.hpp"
+#include "duckdb/common/exception.hpp"
 #include <cassert>
+#include <optional>
 #include <string>
 
 namespace nb = nanobind;
@@ -90,6 +92,65 @@ struct PyUtil {
 
 	private:
 		PyThreadState *saved;
+	};
+
+	// Whether this thread may enter the interpreter; asked without the GIL. Once the interpreter finalizes only the
+	// thread finalizing it may: Python 3.14 hands a thread without a thread state a new one that finalization does not
+	// stop, so an engine thread would run Python code while the interpreter is torn down and after it is gone, and a
+	// daemon thread hangs for good inside the task it runs, which a close during finalization then waits for.
+	static bool CanEnterInterpreter();
+	// Records the calling thread as the one finalizing the interpreter; called by the exit hook, which runs on it
+	static void SetFinalizingThread();
+
+	// nb::gil_scoped_acquire for code that engine threads run, such as scans, functions and file system callbacks:
+	// where the interpreter cannot be entered it throws an InterruptException instead, so the task ends rather than
+	// entering Python.
+	class GilAcquireOrInterrupt {
+	public:
+		GilAcquireOrInterrupt() : had_thread_state(Admit()) {
+			// Finalization started between the check and the attach: the new thread state goes back with the GIL
+			if (!had_thread_state && !CanEnterInterpreter()) {
+				throw InterruptException();
+			}
+		}
+		GilAcquireOrInterrupt(const GilAcquireOrInterrupt &) = delete;
+		GilAcquireOrInterrupt &operator=(const GilAcquireOrInterrupt &) = delete;
+
+	private:
+		static bool Admit() {
+			if (!CanEnterInterpreter()) {
+				throw InterruptException();
+			}
+			return PyGILState_GetThisThreadState() != nullptr;
+		}
+
+		const bool had_thread_state;
+		nb::gil_scoped_acquire gil;
+	};
+
+	// nb::detail::cleanup_guard that is also invalid where the interpreter cannot be entered, in which case the
+	// caller leaks what it would release
+	class CleanupGuard {
+	public:
+		CleanupGuard() {
+			if (!CanEnterInterpreter()) {
+				return;
+			}
+			const bool had_thread_state = PyGILState_GetThisThreadState() != nullptr;
+			guard.emplace();
+			if (*guard && !had_thread_state && !CanEnterInterpreter()) {
+				guard.reset();
+			}
+		}
+		CleanupGuard(const CleanupGuard &) = delete;
+		CleanupGuard &operator=(const CleanupGuard &) = delete;
+
+		explicit operator bool() const {
+			return guard.has_value() && static_cast<bool>(*guard);
+		}
+
+	private:
+		std::optional<nb::detail::cleanup_guard> guard;
 	};
 
 	// Collection predicates consulting the connection's ImportCache (collections.abc Iterable/Mapping).

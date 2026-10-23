@@ -25,7 +25,7 @@ public:
 	//! Assignment would drop the previous reference outside the destructor's guard
 	PyObjectHolder &operator=(PyObjectHolder &&) = delete;
 	~PyObjectHolder() {
-		if (nb::detail::cleanup_guard guard {}) {
+		if (PyUtil::CleanupGuard guard {}) {
 			obj = nb::object();
 		} else {
 			obj.release();

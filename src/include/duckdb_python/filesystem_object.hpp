@@ -18,7 +18,7 @@ public:
 	    : RegisteredObject(std::move(fs)), filenames(std::move(filenames_p)) {
 	}
 	~FileSystemObject() override {
-		nb::detail::cleanup_guard guard {};
+		PyUtil::CleanupGuard guard {};
 		if (!guard) {
 			return;
 		}

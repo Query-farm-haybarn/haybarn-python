@@ -22,7 +22,7 @@ public:
 	}
 
 	~PythonObjectContainer() {
-		if (nb::detail::cleanup_guard guard {}) {
+		if (PyUtil::CleanupGuard guard {}) {
 			py_obj.clear();
 		} else {
 			for (auto &obj : py_obj) {
@@ -32,7 +32,7 @@ public:
 	}
 
 	void Push(nb::object &&obj) {
-		nb::gil_scoped_acquire gil;
+		PyUtil::GilAcquireOrInterrupt gil;
 		PushInternal(std::move(obj));
 	}
 

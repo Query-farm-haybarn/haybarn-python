@@ -91,6 +91,7 @@ private:
 };
 
 void OnInterpreterExit() {
+	PyUtil::SetFinalizingThread();
 	interpreter_exiting = true;
 	auto results = engine::Result::Live();
 	{
@@ -130,10 +131,13 @@ void ReleaseFromSource(T &value, bool under_gil, bool admitted_during_exit) noex
 	if (!value.release) {
 		return;
 	}
+	// Even a release that needs no GIL can take it, as pyarrow's does for an array over a NumPy buffer
 	if (SourceCall call {admitted_during_exit}) {
 		if (!under_gil) {
-			value.release(&value);
-		} else if (nb::detail::cleanup_guard guard {}) {
+			if (PyUtil::CanEnterInterpreter()) {
+				value.release(&value);
+			}
+		} else if (PyUtil::CleanupGuard guard {}) {
 			value.release(&value);
 		}
 	}
@@ -603,7 +607,8 @@ unique_ptr<GlobalTableFunctionState> PythonArrowScanInitGlobal(ClientContext &co
 	const auto subject = Subject(info.name, info.kind, "object");
 	const auto source_subject = Subject(info.name, info.kind, "source");
 
-	nb::gil_scoped_acquire gil;
+	// The engine initializes a scan on any of its threads
+	PyUtil::GilAcquireOrInterrupt gil;
 	engine::CallbackScope callback(context);
 	result->started_during_exit = StartedDuringExit();
 	// Kept only once every check passed, so a scan refused before reading a row leaves a single use reader readable.
@@ -725,7 +730,7 @@ void PullNext(ClientContext &context, PythonArrowScanGlobalState &global, ArrowA
 	int code;
 	string error;
 	if (global.python_callbacks) {
-		nb::gil_scoped_acquire gil;
+		PyUtil::GilAcquireOrInterrupt gil;
 		code = stream.get_next(&stream, &out);
 		if (code != 0) {
 			error = StreamError(stream, code);

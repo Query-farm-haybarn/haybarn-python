@@ -242,7 +242,7 @@ static OperatorResultType ExecuteMap(ExecutionContext &context, TableFunctionInp
 
 OperatorResultType MapFunction::MapFunctionExec(ExecutionContext &context, TableFunctionInput &data_p, DataChunk &input,
                                                 DataChunk &output) {
-	nb::gil_scoped_acquire acquire;
+	PyUtil::GilAcquireOrInterrupt acquire;
 	engine::CallbackScope callback(context.client);
 	try {
 		return ExecuteMap(context, data_p, input, output);

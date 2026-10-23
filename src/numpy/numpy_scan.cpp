@@ -246,7 +246,7 @@ void NumpyScan::ScanObjectColumn(ClientContext &context, PyObject **col, idx_t s
                                  idx_t count, idx_t offset, Vector &out) {
 	// numpy_col is a sequential list of objects, that make up one "column" (Vector)
 	out.SetVectorType(VectorType::FLAT_VECTOR);
-	nb::gil_scoped_acquire gil; // We're creating python objects here, so we need the GIL
+	PyUtil::GilAcquireOrInterrupt gil; // We're creating python objects here, so we need the GIL
 
 	if (masked) {
 		ScanObjectRows<true>(context, col, stride, masked, count, offset, out);
@@ -321,7 +321,7 @@ static void ScanNumpyStrings(PandasColumnBindData &bind_data, PyObject **src_ptr
 	auto tgt_ptr = FlatVector::GetDataMutable<string_t>(out);
 	auto &out_mask = FlatVector::ValidityMutable(out);
 	// A str's UTF-8 is reachable only through the C API, which needs the GIL
-	nb::gil_scoped_acquire gil;
+	PyUtil::GilAcquireOrInterrupt gil;
 	auto &import_cache = *DuckDBPyConnection::ImportCache();
 	auto masked_constant = import_cache.numpy.ma.masked(false);
 

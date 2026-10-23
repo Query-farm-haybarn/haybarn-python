@@ -31,7 +31,7 @@ struct PandasScanFunctionData : public TableFunctionData {
 
 	~PandasScanFunctionData() override {
 		try {
-			if (nb::detail::cleanup_guard guard {}) {
+			if (PyUtil::CleanupGuard guard {}) {
 				pandas_bind_data.clear();
 			} else {
 				// Leaked on purpose: the Python references can no longer be dropped, and a static owner
