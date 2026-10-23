@@ -7,6 +7,9 @@
 # the test suite against every interpreter each wheel serves. Only this file
 # decides versions and publishing.
 #
+# Platforms (2.0): manylinux x86_64 and aarch64, macOS arm64, Windows amd64.
+# No musllinux, macOS x86_64/universal2 or Windows arm64 wheels.
+#
 # The DuckDB engine is built from the `external/duckdb` submodule, which points
 # at the Haybarn core fork (Query-farm-haybarn/haybarn) — so the wheels embed
 # the Haybarn build of DuckDB (Haybarn extension trust root, etc.).

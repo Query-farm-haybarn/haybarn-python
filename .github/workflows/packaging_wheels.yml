@@ -79,7 +79,7 @@ jobs:
         python: [ cp312 ]
         platform:
           - { os: windows-2022,     arch: amd64,      cibw_system: win }
-          - { os: windows-11-arm,   arch: ARM64,      cibw_system: win } # cibw requires ARM64 to be uppercase
+          # Haybarn: no Windows arm64 wheels in 2.0.
           - { os: ubuntu-24.04,     arch: x86_64,     cibw_system: manylinux }
           - { os: ubuntu-24.04-arm, arch: aarch64,    cibw_system: manylinux }
           - { os: macos-15,         arch: arm64,      cibw_system: macosx }
@@ -153,7 +153,7 @@ jobs:
         python: [ cp311 ]
         platform:
           - { os: windows-2022,     arch: amd64,      cibw_system: win }
-          - { os: windows-11-arm,   arch: ARM64,      cibw_system: win } # cibw requires ARM64 to be uppercase
+          # Haybarn: no Windows arm64 wheels in 2.0.
           - { os: ubuntu-24.04,     arch: x86_64,     cibw_system: manylinux }
           - { os: ubuntu-24.04-arm, arch: aarch64,    cibw_system: manylinux }
           - { os: macos-15,         arch: arm64,      cibw_system: macosx }
@@ -190,7 +190,7 @@ jobs:
         python: [ '3.12', '3.13', '3.14', '3.15' ]
         platform:
           - { os: windows-2022,     arch: amd64,      cibw_system: win }
-          - { os: windows-11-arm,   arch: ARM64,      cibw_system: win }
+          # Haybarn: no Windows arm64 wheels in 2.0.
           - { os: ubuntu-24.04,     arch: x86_64,     cibw_system: manylinux }
           - { os: ubuntu-24.04-arm, arch: aarch64,    cibw_system: manylinux }
           - { os: macos-15,         arch: arm64,      cibw_system: macosx }
