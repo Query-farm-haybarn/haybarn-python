@@ -64,7 +64,7 @@ jobs:
         env:
           PUBLISH_INPUT: ${{ inputs.publish }}
         # On a haybarn-v2.* tag the package version is the tag minus its
-        # `haybarn-` prefix (haybarn-v2.0.0-rc4 -> v2.0.0-rc4 -> 2.0.0rc4), which
+        # `haybarn-` prefix (haybarn-v2.0.0-rc5 -> v2.0.0-rc5 -> 2.0.0rc5), which
         # the build backend requires to equal [tool.duckdb_packaging]
         # release_version, and the engine submodule must sit exactly on the
         # engine tag of the same name. Anything else is a dev build of
