@@ -1128,6 +1128,13 @@ class TestAfterASubinterpreter:
         sys.platform == "win32",
         reason="the child process hangs in the scan on Windows once a subinterpreter exists; Linux and macOS pass",
     )
+    # Haybarn: the same hang shows up on GitHub's macos-15 arm64 runners during the full suite
+    # (also before 44ae02217f); it does not reproduce on a macOS 15 machine run alone.
+    @pytest.mark.xfail(
+        sys.platform == "darwin",
+        reason="the child process can hang in the scan on macOS CI runners once a subinterpreter exists",
+        strict=False,
+    )
     @pytest.mark.timeout(120)
     def test_a_generator_backed_reader_is_scanned_at_one_and_four_threads(self):
         import importlib.util
