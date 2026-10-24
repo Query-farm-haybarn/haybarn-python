@@ -1,0 +1,43 @@
+# Scratch: loops TestAfterASubinterpreter's child on macOS with the wheel before and after 44ae02217f.
+name: Debug subinterpreter hang
+on:
+  push:
+    branches: [debug/macos-subinterp-hang]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  loop:
+    name: 'loop ${{ matrix.wheel.name }} py${{ matrix.python }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.13', '3.14']
+        wheel:
+          - { name: prefix-22b01f6c4c, run: '39973079830' }
+          - { name: fix-44ae02217f, run: '40043532214' }
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Fetch wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download ${{ matrix.wheel.run }} -R ${{ github.repository }} -n wheel-cp312-macosx_arm64 -D wheelhouse
+      - name: Install
+        run: |
+          python -m venv .v
+          .v/bin/pip install -q wheelhouse/*.whl pyarrow numpy
+      - name: Loop
+        run: .v/bin/python .github/debug/hangloop.py tests ${N:-100} out
+        env:
+          N: '100'
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: out-${{ matrix.wheel.name }}-py${{ matrix.python }}
+          path: out
+          if-no-files-found: ignore
