@@ -30,7 +30,7 @@ jobs:
       - name: Install
         run: |
           python -m venv .v
-          .v/bin/pip install -q wheelhouse/*.whl pyarrow numpy
+          .v/bin/pip install -q wheelhouse/*.whl pyarrow numpy pytest
       - name: Loop
         run: .v/bin/python .github/debug/hangloop.py tests ${N:-100} out
         env:
