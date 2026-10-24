@@ -1103,15 +1103,13 @@ class TestFragments:
 SUBINTERPRETER_TESTS = Path(__file__).resolve().parents[2] / "test_subinterpreter_gil.py"
 
 # Scanned after the process created a subinterpreter, a Python generator backed reader must still be pulled safely.
-# Every pull waits out the spinner's switch interval for the GIL, so the rows come in few batches: at 200 batches the
-# child took 10 s on an idle macOS runner and over the harness's 60 s on a busy one.
 GENERATOR_INPUT = """
 import pyarrow as pa
 
 
 def produce():
-    for index in range(20):
-        yield pa.record_batch([pa.array(range(index * 1000, index * 1000 + 1000))], names=["n"])
+    for index in range(200):
+        yield pa.record_batch([pa.array(range(index * 100, index * 100 + 100))], names=["n"])
 
 
 print("STARTED")
