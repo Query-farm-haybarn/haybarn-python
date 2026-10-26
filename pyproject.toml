@@ -115,7 +115,7 @@ DUCKDB_PY_LTO = ""
 # Haybarn: the Haybarn release this branch builds next (Haybarn's own rcN; the
 # engine is built as the upstream DuckDB version, see OVERRIDE_DUCKDB_GIT_DESCRIBE
 # in .github/workflows/haybarn-python.yml).
-release_version = "2.0.0rc7"
+release_version = "2.0.0rc8"
 
 [[tool.scikit-build.overrides]]
 if.env.CIBUILDWHEEL_BUILD_IDENTIFIER = true
