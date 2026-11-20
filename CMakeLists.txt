@@ -171,8 +171,11 @@ target_compile_definitions(_duckdb_dependencies INTERFACE DUCKDB_STATIC_BUILD)
 # flag, the type registry and the exception translators are otherwise shared
 # with every nanobind extension in the process that has the same ABI key. It
 # must reach the object library that expands NB_MODULE, so it sits here and not
-# on nanobind_add_module.
-target_compile_definitions(_duckdb_dependencies INTERFACE NB_DOMAIN=duckdb)
+# on nanobind_add_module. Haybarn: its own domain name, not upstream's
+# `duckdb`, so `haybarn` and a genuine `duckdb` wheel import side by side
+# instead of aborting on the duplicate binding types ("refusing to add
+# duplicate key ... ExplainType").
+target_compile_definitions(_duckdb_dependencies INTERFACE NB_DOMAIN=haybarn)
 
 foreach(flag IN LISTS DUCKDB_PY_ARCHITECTURE_FLAGS)
   target_compile_options(_duckdb_dependencies

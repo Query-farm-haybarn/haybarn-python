@@ -163,7 +163,7 @@ def _nanobind_internals_keys() -> list[str]:
 @pytest.mark.skipif(platform.python_implementation() != "CPython", reason="reads CPython's interpreter state dict")
 def test_the_module_has_its_own_nanobind_domain():
     keys = _nanobind_internals_keys()
-    assert any(key.endswith("_duckdb__") for key in keys), keys
+    assert any(key.endswith("_haybarn__") for key in keys), keys
 
 
 def _build_tree_cache() -> dict[str, str] | None:
