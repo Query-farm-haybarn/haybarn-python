@@ -51,7 +51,7 @@ env:
   # engine corresponds to. It governs storage and extension compatibility
   # (extensions install from core/<this version>/), so it stays the bare
   # upstream version for every Haybarn rcN.
-  HAYBARN_DUCKDB_VERSION: v2.0.0
+  HAYBARN_DUCKDB_VERSION: v2.0.1
 
 jobs:
   version:
@@ -67,7 +67,7 @@ jobs:
         env:
           PUBLISH_INPUT: ${{ inputs.publish }}
         # On a haybarn-v2.* tag the package version is the tag minus its
-        # `haybarn-` prefix (haybarn-v2.0.0-rc4 -> v2.0.0-rc4 -> 2.0.0rc4), which
+        # `haybarn-` prefix (haybarn-v2.0.1-rc3 -> v2.0.1-rc3 -> 2.0.1rc3), which
         # the build backend requires to equal [tool.duckdb_packaging]
         # release_version, and the engine submodule must sit exactly on the
         # engine tag of the same name. Anything else is a dev build of
