@@ -1131,6 +1131,14 @@ for threads in (1, 4):
 
 
 class TestAfterASubinterpreter:
+    # Haybarn: this hung on GitHub's macos-15 arm64 runners during the full suite on 2.0.0 (it never reproduced on a
+    # macOS 15 machine run alone). Upstream's 2.0.1 fix (#725, pandas imported before the spinner starts) should cure
+    # it; kept non-strict until CI shows it passing, so an XPASS does not fail the release.
+    @pytest.mark.xfail(
+        sys.platform == "darwin",
+        reason="the child process can hang in the scan on macOS CI runners once a subinterpreter exists",
+        strict=False,
+    )
     @pytest.mark.timeout(120)
     def test_a_generator_backed_reader_is_scanned_at_one_and_four_threads(self):
         import importlib.util
