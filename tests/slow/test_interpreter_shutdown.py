@@ -66,7 +66,7 @@ import sys
 from unittest import mock
 
 with mock.patch.dict(sys.modules):
-    import duckdb
+    import haybarn
 """
 
 FROZEN_HOLDER = """
@@ -75,20 +75,20 @@ import gc
 def holder():
     pass
 
-holder.module = duckdb
+holder.module = haybarn
 """
 
 DROP_CLEANUP_CAPSULE = """
 import sys
-import duckdb
-import _duckdb
+import haybarn
+import _haybarn
 
-_duckdb._set_leak_report(True)
+_haybarn._set_leak_report(True)
 
-before = duckdb.default_connection()
-del duckdb._clean_default_connection
-del sys.modules["_duckdb"]._clean_default_connection
-assert duckdb.default_connection() is not before
+before = haybarn.default_connection()
+del haybarn._clean_default_connection
+del sys.modules["_haybarn"]._clean_default_connection
+assert haybarn.default_connection() is not before
 """
 
 LATE_ATEXIT_QUERY = """
@@ -114,8 +114,8 @@ MODULE_OUTLIVES_SHUTDOWN = [
             """
             import ctypes
 
-            ctypes.pythonapi.Py_IncRef(ctypes.py_object(duckdb))
-            assert duckdb.sql("select 42").fetchall() == [(42,)]
+            ctypes.pythonapi.Py_IncRef(ctypes.py_object(haybarn))
+            assert haybarn.sql("select 42").fetchall() == [(42,)]
             print("BODY_DONE", flush=True)
             """,
         ),
@@ -130,7 +130,7 @@ MODULE_OUTLIVES_SHUTDOWN = [
             import pyarrow as pa
 
             tbl = pa.table({"a": [1, 2, 3]})
-            assert duckdb.sql("select sum(a) from tbl").fetchall() == [(6,)]
+            assert haybarn.sql("select sum(a) from tbl").fetchall() == [(6,)]
             gc.freeze()
             print("BODY_DONE", flush=True)
             """,
@@ -163,8 +163,8 @@ def test_module_outside_sys_modules_keeps_committed_data(tmp_path) -> None:
         UNLISTED_IMPORT,
         FROZEN_HOLDER,
         """
-        duckdb.set_default_connection(duckdb.connect(sys.argv[1]))
-        duckdb.sql("create table t as select 42 as a")
+        haybarn.set_default_connection(haybarn.connect(sys.argv[1]))
+        haybarn.sql("create table t as select 42 as a")
         gc.freeze()
         print("BODY_DONE", flush=True)
         """,
@@ -172,12 +172,12 @@ def test_module_outside_sys_modules_keeps_committed_data(tmp_path) -> None:
     _assert_clean_exit(_run(script, database), (), leak_free=False)
     reopen = """
         import sys
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        print(duckdb.connect(sys.argv[1]).sql("from t").fetchall())
+        print(haybarn.connect(sys.argv[1]).sql("from t").fetchall())
         print("BODY_DONE", flush=True)
     """
     _assert_clean_exit(_run(reopen, database), ("[(42,)]",), leak_free=True)
@@ -187,7 +187,7 @@ def test_module_outside_sys_modules_keeps_committed_data(tmp_path) -> None:
 STATE_RECREATED_AFTER_RELEASE = [
     pytest.param(
         """
-        assert duckdb.sql("select 42").fetchall() == [(42,)]
+        assert haybarn.sql("select 42").fetchall() == [(42,)]
         print("BODY_DONE", flush=True)
         """,
         id="query",
@@ -197,7 +197,7 @@ STATE_RECREATED_AFTER_RELEASE = [
         import pyarrow as pa
 
         tbl = pa.table({"a": [1, 2, 3]})
-        assert duckdb.sql("select sum(a) from tbl").fetchall() == [(6,)]
+        assert haybarn.sql("select sum(a) from tbl").fetchall() == [(6,)]
         print("BODY_DONE", flush=True)
         """,
         id="arrow_scan",
@@ -208,7 +208,7 @@ STATE_RECREATED_AFTER_RELEASE = [
         import pandas as pd
 
         df = pd.DataFrame({"a": [1, 2, 3]})
-        assert duckdb.sql("select sum(a) from df").fetchall() == [(6,)]
+        assert haybarn.sql("select sum(a) from df").fetchall() == [(6,)]
         print("BODY_DONE", flush=True)
         """,
         id="pandas_scan",
@@ -218,7 +218,7 @@ STATE_RECREATED_AFTER_RELEASE = [
         """
         import io
 
-        rel = duckdb.read_csv(io.BytesIO(b"a\\n1\\n2\\n"))
+        rel = haybarn.read_csv(io.BytesIO(b"a\\n1\\n2\\n"))
         assert rel.fetchall() == [(1,), (2,)]
         print("BODY_DONE", flush=True)
         """,
@@ -229,8 +229,8 @@ STATE_RECREATED_AFTER_RELEASE = [
         """
         import pandas as pd
 
-        duckdb.register("v", pd.DataFrame({"a": [1, 2, 3]}))
-        rel = duckdb.sql("select sum(a) from v")
+        haybarn.register("v", pd.DataFrame({"a": [1, 2, 3]}))
+        rel = haybarn.sql("select sum(a) from v")
         assert rel.fetchall() == [(6,)]
         print("BODY_DONE", flush=True)
         """,
@@ -249,12 +249,12 @@ def test_state_recreated_after_release(script: str) -> None:
 ORDINARY_SHUTDOWN = [
     pytest.param(
         """
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        assert duckdb.sql("select 42").fetchall() == [(42,)]
+        assert haybarn.sql("select 42").fetchall() == [(42,)]
         print("BODY_DONE", flush=True)
         """,
         (),
@@ -263,17 +263,17 @@ ORDINARY_SHUTDOWN = [
     ),
     pytest.param(
         """
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import pandas as pd
         import pyarrow as pa
 
         tbl = pa.table({"a": [1, 2, 3]})
         df = pd.DataFrame({"a": [1, 2, 3]})
-        assert duckdb.sql("select sum(a) from tbl").fetchall() == [(6,)]
-        assert duckdb.sql("select sum(a) from df").fetchall() == [(6,)]
+        assert haybarn.sql("select sum(a) from tbl").fetchall() == [(6,)]
+        assert haybarn.sql("select sum(a) from df").fetchall() == [(6,)]
         print("BODY_DONE", flush=True)
         """,
         (),
@@ -286,17 +286,17 @@ ORDINARY_SHUTDOWN = [
         import atexit
 
         def late():
-            import duckdb
+            import haybarn
 
-            print("atexit", duckdb.sql("select 42").fetchall(), flush=True)
+            print("atexit", haybarn.sql("select 42").fetchall(), flush=True)
 
         atexit.register(late)
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        duckdb.sql("select 1").fetchall()
+        haybarn.sql("select 1").fetchall()
         print("BODY_DONE", flush=True)
         """,
         ("atexit [(42,)]",),
@@ -311,17 +311,17 @@ ORDINARY_SHUTDOWN = [
         tbl = pa.table({"a": [1, 2, 3]})
 
         def late():
-            import duckdb
+            import haybarn
 
-            print("atexit", duckdb.sql("select sum(a) from tbl").fetchall(), flush=True)
+            print("atexit", haybarn.sql("select sum(a) from tbl").fetchall(), flush=True)
 
         atexit.register(late)
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        duckdb.sql("select 1").fetchall()
+        haybarn.sql("select 1").fetchall()
         print("BODY_DONE", flush=True)
         """,
         ("atexit [(6,)]",),
@@ -332,16 +332,16 @@ ORDINARY_SHUTDOWN = [
     pytest.param(
         """
         import atexit
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import pyarrow as pa
 
         tbl = pa.table({"a": [1, 2, 3]})
 
         def late():
-            print("atexit", duckdb.sql("select sum(a) from tbl").fetchall(), flush=True)
+            print("atexit", haybarn.sql("select sum(a) from tbl").fetchall(), flush=True)
 
         atexit.register(late)
         print("BODY_DONE", flush=True)
@@ -354,19 +354,19 @@ ORDINARY_SHUTDOWN = [
     pytest.param(
         """
         import atexit
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import pyarrow as pa
 
         tbl = pa.table({"a": [1, 2, 3]})
 
         def late():
-            print("atexit", duckdb.sql("select sum(a) from tbl").fetchall(), flush=True)
+            print("atexit", haybarn.sql("select sum(a) from tbl").fetchall(), flush=True)
 
         atexit.register(late)
-        print("body", duckdb.sql("select sum(a) from tbl").fetchall(), flush=True)
+        print("body", haybarn.sql("select sum(a) from tbl").fetchall(), flush=True)
         print("BODY_DONE", flush=True)
         """,
         ("body [(6,)]", "atexit [(6,)]"),
@@ -377,12 +377,12 @@ ORDINARY_SHUTDOWN = [
     pytest.param(
         """
         import atexit
-        import duckdb
+        import haybarn
         import pyarrow as pa
 
         # Built here, since building arrays during exit imports pandas, which can no longer start threads.
         batches = [pa.record_batch([pa.array(range(i * 100, i * 100 + 100))], names=["i"]) for i in range(500)]
-        con = duckdb.connect(config={"threads": 4})
+        con = haybarn.connect(config={"threads": 4})
         kept = []
 
         def late():
@@ -402,14 +402,14 @@ ORDINARY_SHUTDOWN = [
     ),
     pytest.param(
         """
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
         class Finalized:
             def __del__(self):
-                print("finalizer", duckdb.sql("select 42").fetchall(), flush=True)
+                print("finalizer", haybarn.sql("select 42").fetchall(), flush=True)
 
         kept = Finalized()
         print("BODY_DONE", flush=True)
@@ -421,14 +421,14 @@ ORDINARY_SHUTDOWN = [
     pytest.param(
         """
         import builtins
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
         class Finalized:
             def __del__(self):
-                print("finalizer", duckdb.sql("select 42").fetchall(), flush=True)
+                print("finalizer", haybarn.sql("select 42").fetchall(), flush=True)
 
         builtins.kept = Finalized()
         print("BODY_DONE", flush=True)
@@ -439,13 +439,13 @@ ORDINARY_SHUTDOWN = [
     ),
     pytest.param(
         """
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        rel = duckdb.sql("select 42")
-        con = duckdb.connect()
+        rel = haybarn.sql("select 42")
+        con = haybarn.connect()
         con_rel = con.sql("select 42")
         print("BODY_DONE", flush=True)
         """,
@@ -455,17 +455,17 @@ ORDINARY_SHUTDOWN = [
     ),
     pytest.param(
         """
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import pandas as pd
         import pyarrow as pa
 
         tbl = pa.table({"a": [1, 2, 3]})
-        con = duckdb.connect()
+        con = haybarn.connect()
         arrow_rel = con.from_arrow(tbl)
-        default_rel = duckdb.sql("select * from tbl")
+        default_rel = haybarn.sql("select * from tbl")
         con.register("v", pd.DataFrame({"a": [1, 2, 3]}))
         pandas_rel = con.sql("select * from v")
         print("BODY_DONE", flush=True)
@@ -478,14 +478,14 @@ ORDINARY_SHUTDOWN = [
     pytest.param(
         """
         import io
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        rel = duckdb.read_csv(io.BytesIO(b"a\\n1\\n2\\n"))
+        rel = haybarn.read_csv(io.BytesIO(b"a\\n1\\n2\\n"))
         assert rel.fetchall() == [(1,), (2,)]
-        con = duckdb.connect()
+        con = haybarn.connect()
         con_rel = con.read_csv(io.BytesIO(b"a\\n1\\n2\\n"))
         assert con_rel.fetchall() == [(1,), (2,)]
         print("BODY_DONE", flush=True)
@@ -499,16 +499,16 @@ ORDINARY_SHUTDOWN = [
         """
         import threading
         import time
-        import duckdb
+        import haybarn
 
-        con = duckdb.connect()
+        con = haybarn.connect()
 
         def work():
             try:
                 cursor = con.cursor()
                 while True:
                     cursor.execute("select sum(range) from range(200000)").fetchall()
-            except duckdb.Error:
+            except haybarn.Error:
                 pass
 
         for _ in range(4):
@@ -528,17 +528,17 @@ ORDINARY_SHUTDOWN = [
         """
         import atexit
         import threading
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import pyarrow as pa
 
         tbl = pa.table({"a": [1, 2, 3]})
         finished = []
 
         def work():
-            con = duckdb.connect()
+            con = haybarn.connect()
             for _ in range(50):
                 assert con.execute("select sum(a) from tbl").fetchall() == [(6,)]
             finished.append(True)
@@ -555,10 +555,10 @@ ORDINARY_SHUTDOWN = [
     ),
     pytest.param(
         """
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import numpy as np
         import pandas as pd
 
@@ -571,12 +571,12 @@ ORDINARY_SHUTDOWN = [
         )
         assert column.array._pa_array.num_chunks == 2
         frame = pd.DataFrame({"s": column, "i": np.arange(len(column), dtype=np.int64)})
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register("f", frame)
         rel = con.sql("SELECT s, i FROM f")
         result = con.execute("SELECT s FROM f")
         assert result.fetchmany(10) == [(f"v{i}",) for i in range(10)]
-        default_rel = duckdb.sql("SELECT s FROM frame")
+        default_rel = haybarn.sql("SELECT s FROM frame")
         print("BODY_DONE", flush=True)
         """,
         (),
@@ -587,10 +587,10 @@ ORDINARY_SHUTDOWN = [
     pytest.param(
         """
         import signal
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import numpy as np
         import pandas as pd
 
@@ -603,7 +603,7 @@ ORDINARY_SHUTDOWN = [
         )
         assert column.array._pa_array.num_chunks == 2
         frame = pd.DataFrame({"s": column, "i": np.arange(len(column), dtype=np.int64)})
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register("f", frame)
         rel = con.sql("SELECT s, i FROM f")
         result = con.execute("SELECT s FROM f")
@@ -621,10 +621,10 @@ ORDINARY_SHUTDOWN = [
     pytest.param(
         """
         import signal
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import numpy as np
         import pandas as pd
         import pyarrow as pa
@@ -634,7 +634,7 @@ ORDINARY_SHUTDOWN = [
         assert column.dtype == "string[pyarrow]"
         assert column.array._pa_array.num_chunks == 12000
         frame = pd.DataFrame({"s": column, "i": np.arange(len(column), dtype=np.int64)})
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.register("f", frame)
         rel = con.sql("SELECT s, i FROM f")
         result = con.execute("SELECT s FROM f")
@@ -651,10 +651,10 @@ ORDINARY_SHUTDOWN = [
     ),
     pytest.param(
         """
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
         import numpy as np
         import pyarrow as pa
         import pyarrow.compute as pc
@@ -663,7 +663,7 @@ ORDINARY_SHUTDOWN = [
         tbl = pa.table({"a": numbers, "s": pc.cast(numbers, pa.string())})
         assert tbl.column("a").num_chunks == 1
         assert tbl.column("s").num_chunks == 1
-        con = duckdb.connect(config={"threads": 4})
+        con = haybarn.connect(config={"threads": 4})
         con.register("t", tbl)
         rel = con.sql("SELECT a, s FROM t")
         result = con.execute("SELECT a, s FROM t")
@@ -679,7 +679,7 @@ ORDINARY_SHUTDOWN = [
         """
         import threading
         import time
-        import duckdb
+        import haybarn
         import numpy as np
         import pyarrow as pa
         import pyarrow.compute as pc
@@ -687,7 +687,7 @@ ORDINARY_SHUTDOWN = [
         numbers = pa.array(np.arange(1_000_003, dtype=np.int64))
         tbl = pa.table({"a": numbers, "s": pc.cast(numbers, pa.string())})
         assert tbl.column("a").num_chunks == 1
-        con = duckdb.connect(config={"threads": 4})
+        con = haybarn.connect(config={"threads": 4})
 
         def work():
             cursor = con.cursor()
@@ -695,7 +695,7 @@ ORDINARY_SHUTDOWN = [
             try:
                 while True:
                     cursor.execute("select count(s), min(a), max(s) from tbl").fetchall()
-            except duckdb.Error:
+            except haybarn.Error:
                 pass
 
         for _ in range(4):
@@ -719,19 +719,19 @@ ORDINARY_SHUTDOWN = [
             """
             import threading
             import time
-            import duckdb
+            import haybarn
             import numpy as np
             import pandas as pd
 
             frame = pd.DataFrame({"a": COLUMN})
-            con = duckdb.connect()
+            con = haybarn.connect()
 
             def work():
                 cursor = con.cursor()
                 try:
                     while True:
                         cursor.execute("select count(a), min(a) from frame").fetchall()
-                except duckdb.Error:
+                except haybarn.Error:
                     pass
 
             for _ in range(4):
@@ -772,14 +772,14 @@ def test_ordinary_shutdown_checkpoints_default_connection(tmp_path) -> None:
     database = tmp_path / "exit.db"
     script = """
         import sys
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        duckdb.set_default_connection(duckdb.connect(sys.argv[1]))
-        duckdb.sql("create table t as select range as a from range(3)")
-        duckdb.sql("insert into t values (3)")
+        haybarn.set_default_connection(haybarn.connect(sys.argv[1]))
+        haybarn.sql("create table t as select range as a from range(3)")
+        haybarn.sql("insert into t values (3)")
         print("BODY_DONE", flush=True)
     """
     _assert_clean_exit(_run(script, str(database)), (), leak_free=True)
@@ -787,12 +787,12 @@ def test_ordinary_shutdown_checkpoints_default_connection(tmp_path) -> None:
     assert not database.with_name(database.name + ".wal").exists()
     reopen = """
         import sys
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        print(duckdb.connect(sys.argv[1]).sql("from t order by a").fetchall())
+        print(haybarn.connect(sys.argv[1]).sql("from t order by a").fetchall())
         print("BODY_DONE", flush=True)
     """
     _assert_clean_exit(_run(reopen, str(database)), ("[(0,), (1,), (2,), (3,)]",), leak_free=True)
@@ -805,10 +805,10 @@ def test_c_exit_keeps_committed_data(tmp_path, library: str) -> None:
     script = f"""
         import ctypes
         import sys
-        import duckdb
+        import haybarn
 
-        duckdb.set_default_connection(duckdb.connect(sys.argv[1]))
-        duckdb.sql("create table t as select range as a from range(3)")
+        haybarn.set_default_connection(haybarn.connect(sys.argv[1]))
+        haybarn.sql("create table t as select range as a from range(3)")
         print("BODY_DONE", flush=True)
         ctypes.{library}(None).exit(0)
     """
@@ -816,12 +816,12 @@ def test_c_exit_keeps_committed_data(tmp_path, library: str) -> None:
     _assert_clean_exit(_run(script, database), (), leak_free=False)
     reopen = """
         import sys
-        import duckdb
-        import _duckdb
+        import haybarn
+        import _haybarn
 
-        _duckdb._set_leak_report(True)
+        _haybarn._set_leak_report(True)
 
-        print(duckdb.connect(sys.argv[1]).sql("from t order by a").fetchall())
+        print(haybarn.connect(sys.argv[1]).sql("from t order by a").fetchall())
         print("BODY_DONE", flush=True)
     """
     _assert_clean_exit(_run(reopen, database), ("[(0,), (1,), (2,)]",), leak_free=True)

@@ -6,8 +6,8 @@ import weakref
 
 import pytest
 
-import duckdb
-from duckdb.sqltypes import (
+import haybarn
+from haybarn.sqltypes import (
     BIGINT,
     BIT,
     BLOB,
@@ -41,7 +41,7 @@ from duckdb.sqltypes import (
 
 class TestType:
     def test_sqltype(self):
-        assert str(duckdb.sqltype("struct(a VARCHAR, b BIGINT)")) == "STRUCT(a VARCHAR, b BIGINT)"
+        assert str(haybarn.sqltype("struct(a VARCHAR, b BIGINT)")) == "STRUCT(a VARCHAR, b BIGINT)"
         # TODO: add tests with invalid type_str  # noqa: TD002, TD003
 
     def test_primitive_types(self):
@@ -74,81 +74,81 @@ class TestType:
         assert str(INTERVAL) == "INTERVAL"
 
     def test_list_type(self):
-        type = duckdb.list_type(BIGINT)
+        type = haybarn.list_type(BIGINT)
         assert str(type) == "BIGINT[]"
 
     def test_array_type(self):
-        type = duckdb.array_type(BIGINT, 3)
+        type = haybarn.array_type(BIGINT, 3)
         assert str(type) == "BIGINT[3]"
 
     def test_struct_type(self):
-        type = duckdb.struct_type({"a": BIGINT, "b": BOOLEAN})
+        type = haybarn.struct_type({"a": BIGINT, "b": BOOLEAN})
         assert str(type) == "STRUCT(a BIGINT, b BOOLEAN)"
 
         # TODO: create an unnamed struct when fields are provided as a list  # noqa: TD002, TD003
-        type = duckdb.struct_type([BIGINT, BOOLEAN])
+        type = haybarn.struct_type([BIGINT, BOOLEAN])
         assert str(type) == "STRUCT(v1 BIGINT, v2 BOOLEAN)"
 
     @pytest.mark.parametrize("fields", [{}, []])
     def test_empty_struct_type(self, fields):
-        type = duckdb.struct_type(fields)
-        assert type == duckdb.sql("select {} as s").types[0]
-        assert duckdb.execute("select ?", [duckdb.Value({}, type)]).fetchall() == [({},)]
-        assert duckdb.sql(f"select {{}}::{type}").fetchall() == [({},)]
+        type = haybarn.struct_type(fields)
+        assert type == haybarn.sql("select {} as s").types[0]
+        assert haybarn.execute("select ?", [haybarn.Value({}, type)]).fetchall() == [({},)]
+        assert haybarn.sql(f"select {{}}::{type}").fetchall() == [({},)]
 
     def test_incomplete_struct_type(self):
         with pytest.raises(
-            duckdb.InvalidInputException, match="Could not convert empty dictionary to a duckdb STRUCT type"
+            haybarn.InvalidInputException, match="Could not convert empty dictionary to a duckdb STRUCT type"
         ):
             DuckDBPyType({})
 
     def test_map_type(self):
-        type = duckdb.map_type(duckdb.sqltype("BIGINT"), duckdb.sqltype("DECIMAL(10, 2)"))
+        type = haybarn.map_type(haybarn.sqltype("BIGINT"), haybarn.sqltype("DECIMAL(10, 2)"))
         assert str(type) == "MAP(BIGINT, DECIMAL(10,2))"
 
     def test_decimal_type(self):
-        type = duckdb.decimal_type(5, 3)
+        type = haybarn.decimal_type(5, 3)
         assert str(type) == "DECIMAL(5,3)"
 
     def test_string_type(self):
-        type = duckdb.string_type()
+        type = haybarn.string_type()
         assert str(type) == "VARCHAR"
 
     def test_string_type_collation(self):
-        type = duckdb.string_type("NOCASE")
+        type = haybarn.string_type("NOCASE")
         # collation does not show up in the string representation..
         assert str(type) == "VARCHAR"
 
     def test_union_type(self):
-        type = duckdb.union_type([BIGINT, VARCHAR, TINYINT])
+        type = haybarn.union_type([BIGINT, VARCHAR, TINYINT])
         assert str(type) == "UNION(v1 BIGINT, v2 VARCHAR, v3 TINYINT)"
 
-        type = duckdb.union_type({"a": BIGINT, "b": VARCHAR, "c": TINYINT})
+        type = haybarn.union_type({"a": BIGINT, "b": VARCHAR, "c": TINYINT})
         assert str(type) == "UNION(a BIGINT, b VARCHAR, c TINYINT)"
 
     @pytest.mark.skipif(sys.version_info < (3, 9), reason="requires >= python3.9")
     def test_implicit_convert_from_builtin_type(self):
-        type = duckdb.list_type(list[str])
+        type = haybarn.list_type(list[str])
         assert str(type.child) == "VARCHAR[]"
 
         mapping = {str: "VARCHAR", int: "BIGINT", bytes: "BLOB", bytearray: "BLOB", bool: "BOOLEAN", float: "DOUBLE"}
         for duckdb_type, expected in mapping.items():
-            res = duckdb.list_type(duckdb_type)
+            res = haybarn.list_type(duckdb_type)
             assert str(res.child) == expected
 
-        res = duckdb.list_type({"a": str, "b": int})
+        res = haybarn.list_type({"a": str, "b": int})
         assert str(res.child) == "STRUCT(a VARCHAR, b BIGINT)"
 
-        res = duckdb.list_type(dict[str, int])
+        res = haybarn.list_type(dict[str, int])
         assert str(res.child) == "MAP(VARCHAR, BIGINT)"
 
-        res = duckdb.list_type(list[str])
+        res = haybarn.list_type(list[str])
         assert str(res.child) == "VARCHAR[]"
 
-        res = duckdb.list_type(list[dict[str, dict[list[str], str]]])
+        res = haybarn.list_type(list[dict[str, dict[list[str], str]]])
         assert str(res.child) == "MAP(VARCHAR, MAP(VARCHAR[], VARCHAR))[]"
 
-        res = duckdb.list_type(list[str | int])
+        res = haybarn.list_type(list[str | int])
         assert str(res.child) == "UNION(u1 VARCHAR, u2 BIGINT)[]"
 
     def test_implicit_convert_from_numpy(self, duckdb_cursor):
@@ -194,7 +194,7 @@ class TestType:
             assert type_mapping[dtype_str] == duckdb_type_str
 
     def test_attribute_accessor(self):
-        type = duckdb.row_type([BIGINT, duckdb.list_type(duckdb.map_type(BLOB, BIT))])
+        type = haybarn.row_type([BIGINT, haybarn.list_type(haybarn.map_type(BLOB, BIT))])
         assert not hasattr(type, "a")
         assert hasattr(type, "v1")
 
@@ -210,19 +210,19 @@ class TestType:
         assert str(child_type) == "MAP(BLOB, BIT)"
 
     def test_json_type(self):
-        json_type = duckdb.type("JSON")
+        json_type = haybarn.type("JSON")
 
-        val = duckdb.Value('{"duck": 42}', json_type)
-        res = duckdb.execute("select typeof($1)", [val]).fetchone()
+        val = haybarn.Value('{"duck": 42}', json_type)
+        res = haybarn.execute("select typeof($1)", [val]).fetchone()
         assert res == ("JSON",)
 
     def test_struct_from_dict(self):
-        res = duckdb.list_type({"a": VARCHAR, "b": VARCHAR})
+        res = haybarn.list_type({"a": VARCHAR, "b": VARCHAR})
         assert res == "STRUCT(a VARCHAR, b VARCHAR)[]"
 
     def test_hash_method(self):
-        type1 = duckdb.list_type({"a": VARCHAR, "b": VARCHAR})
-        type2 = duckdb.list_type({"b": VARCHAR, "a": VARCHAR})
+        type1 = haybarn.list_type({"a": VARCHAR, "b": VARCHAR})
+        type2 = haybarn.list_type({"b": VARCHAR, "a": VARCHAR})
         type3 = VARCHAR
 
         type_set = set()
@@ -350,10 +350,10 @@ class TestAClassThatIsNoType:
         [
             pytest.param(lambda con, cls: DuckDBPyType(cls), TypeError, id="constructor"),
             pytest.param(lambda con, cls: con.list_type(cls), TypeError, id="list_type"),
-            pytest.param(lambda con, cls: con.struct_type({"a": cls}), duckdb.InvalidInputException, id="struct_type"),
+            pytest.param(lambda con, cls: con.struct_type({"a": cls}), haybarn.InvalidInputException, id="struct_type"),
             pytest.param(
-                lambda con, cls: con.execute("SELECT ?", [duckdb.Value(1, cls)]),
-                duckdb.InvalidInputException,
+                lambda con, cls: con.execute("SELECT ?", [haybarn.Value(1, cls)]),
+                haybarn.InvalidInputException,
                 id="value_type",
             ),
             pytest.param(
@@ -362,7 +362,7 @@ class TestAClassThatIsNoType:
         ],
     )
     def test_converting_it_is_refused_without_calling_it(self, cls, convert, error):
-        con = duckdb.connect()
+        con = haybarn.connect()
         CONSTRUCTED.clear()
         assert isinstance(outcome(lambda: convert(con, cls)), error)
         assert CONSTRUCTED == []
@@ -446,12 +446,12 @@ class TestConvertingATypeOperand:
             pytest.param(lambda con, fields: INTEGER == fields, id="eq"),  # noqa: SIM300
             pytest.param(lambda con, fields: INTEGER != fields, id="ne"),  # noqa: SIM300
             pytest.param(lambda con, fields: con.struct_type({"a": fields}), id="struct_type_field"),
-            pytest.param(lambda con, fields: con.execute("SELECT ?", [duckdb.Value(1, fields)]), id="value_type"),
+            pytest.param(lambda con, fields: con.execute("SELECT ?", [haybarn.Value(1, fields)]), id="value_type"),
             pytest.param(lambda con, fields: con.create_function("f", annotated(fields)), id="udf_annotation"),
         ],
     )
     def test_an_interrupt_reaches_the_caller(self, convert, error):
-        con = duckdb.connect()
+        con = haybarn.connect()
         with pytest.raises(error):
             convert(con, {RaisingName(error): int})
         assert con.execute("SELECT 42").fetchone() == (42,)

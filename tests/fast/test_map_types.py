@@ -11,7 +11,7 @@ from fractions import Fraction
 import pytest
 from conftest import PANDAS_GE_3
 
-import duckdb
+import haybarn
 import numpy as np
 import pandas as pd
 
@@ -76,14 +76,14 @@ def test_map_enum_column_rebuilt_as_a_new_categorical_reads_by_its_categories(
 
     source = duckdb_cursor.sql(f"select * from (values ('b'::{ENUM}), (NULL), ('a'::{ENUM})) t(e)")
     mapped = source.map(rebuild)
-    assert mapped.types == [duckdb.sqltype(result_type)]
+    assert mapped.types == [haybarn.sqltype(result_type)]
     assert mapped.fetchall() == [("b",), (None,), ("a",)]
 
 
 def test_map_enum_column_compares_with_its_text(duckdb_cursor):
     source = duckdb_cursor.sql(f"select * from (values ('b'::{ENUM}), (NULL), ('a'::{ENUM})) t(e)")
     mapped = source.map(lambda df: df.assign(is_b=df["e"] == "b"))
-    assert mapped.types == [source.types[0], duckdb.sqltypes.BOOLEAN]
+    assert mapped.types == [source.types[0], haybarn.sqltypes.BOOLEAN]
     assert mapped.fetchall() == [("b", True), (None, False), ("a", False)]
 
 
@@ -150,7 +150,7 @@ UNION_ROWS = pytest.mark.parametrize(
 def test_map_identity_of_a_union_column_is_refused(duckdb_cursor, sql_type, rows, returned, tags_cast):
     mapped = duckdb_cursor.sql(f"select * from (values {rows}) t(u)").map(lambda df: df)
     expected = f"Invalid Input Error: UDF column type mismatch, expected [{sql_type}], got [{returned}]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -158,7 +158,7 @@ def test_map_identity_of_a_union_column_is_refused(duckdb_cursor, sql_type, rows
 def test_map_union_column_in_the_schema_casts_each_member_value(duckdb_cursor, sql_type, rows, returned, tags_cast):
     # The cast picks the member for each value, so a NULL member reads as a NULL UNION and 7 as the INTEGER member.
     source = duckdb_cursor.sql(f"select * from (values {rows}) t(u)")
-    mapped = source.map(lambda df: df, schema={"u": duckdb.sqltype(sql_type)})
+    mapped = source.map(lambda df: df, schema={"u": haybarn.sqltype(sql_type)})
     assert mapped.types == source.types
     assert mapped.project("union_tag(u), u").fetchall() == tags_cast
 
@@ -184,7 +184,7 @@ def test_map_identity_returns_an_enum_column_in_its_own_type(duckdb_cursor, expl
 def test_map_column_takes_the_input_type_of_its_name_when_columns_are_added_or_reordered(duckdb_cursor):
     source = duckdb_cursor.sql("select i as n, {'x': i::BIGINT} as s from range(3) t(i)")
     mapped = source.map(lambda df: df[["s", "n"]].assign(k=1))
-    assert mapped.types == [source.types[1], duckdb.sqltypes.BIGINT, duckdb.sqltypes.BIGINT]
+    assert mapped.types == [source.types[1], haybarn.sqltypes.BIGINT, haybarn.sqltypes.BIGINT]
     assert mapped.fetchall() == [(s, n, 1) for n, s in source.fetchall()]
 
 
@@ -197,7 +197,7 @@ def _text_cells(values):
 
 MISSING_VALUES = [
     pytest.param(lambda: None, id="None"),
-    pytest.param(duckdb.NullValue, id="NullValue"),
+    pytest.param(haybarn.NullValue, id="NullValue"),
     pytest.param(lambda: np.datetime64("NaT", "us"), id="NaT"),
     pytest.param(lambda: pd.NA, id="pd.NA"),
     pytest.param(lambda: float("nan"), id="NaN"),
@@ -243,14 +243,14 @@ def _odd_cell_at(row, value):
 
 # In a 2048 row chunk the analyzer samples the even rows only, so the last row is outside its sample.
 ODD_ROWS = pytest.mark.parametrize("row", [0, 2047], ids=["first_row", "row_outside_the_sample"])
-BIGINT_A = {"a": duckdb.sqltypes.BIGINT}
+BIGINT_A = {"a": haybarn.sqltypes.BIGINT}
 
 
 @ODD_ROWS
 def test_map_object_column_cell_is_cast_into_the_bound_type(duckdb_cursor, row):
     duckdb_cursor.execute("set threads = 1")
     mapped = duckdb_cursor.sql("select i as a from range(2048) t(i)").map(_odd_cell_at(row, "5"), schema=BIGINT_A)
-    assert mapped.types == [duckdb.sqltypes.BIGINT]
+    assert mapped.types == [haybarn.sqltypes.BIGINT]
     assert mapped.fetchall() == [(5 if i == row else i,) for i in range(2048)]
 
 
@@ -259,7 +259,7 @@ def test_map_object_column_cell_the_cast_refuses_raises_the_casts_error(duckdb_c
     duckdb_cursor.execute("set threads = 1")
     mapped = duckdb_cursor.sql("select i as a from range(2048) t(i)").map(_odd_cell_at(row, "x"), schema=BIGINT_A)
     expected = "Conversion Error: UDF column 'a': Could not convert string 'x' to INT64"
-    with pytest.raises(duckdb.ConversionException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.ConversionException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -385,7 +385,7 @@ def test_map_column_whose_cells_the_function_changed_in_kind_is_refused(
 ):
     mapped = duckdb_cursor.sql(f"select {source} as a from range(3) t(i)").map(function)
     expected = f"Invalid Input Error: UDF column type mismatch, expected [{sql_type}], got [{returned}]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -440,7 +440,7 @@ def test_map_value_with_a_time_zone_and_one_without_are_of_different_kinds(
     duckdb_cursor.execute(NEW_YORK)
     mapped = duckdb_cursor.sql(f"select {source} as a from range(1) t(i)").map(function)
     expected = f"Invalid Input Error: UDF column type mismatch, expected [{sql_type}], got [{returned}]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -463,7 +463,7 @@ def test_map_value_with_a_time_zone_and_one_without_are_of_different_kinds(
         ),
         pytest.param(
             "{'t': TIME '01:00:00'}",
-            _apply_to_a(lambda d: {"t": duckdb.Value("01:00:00.000000001", duckdb.sqltype("TIME_NS"))}),
+            _apply_to_a(lambda d: {"t": haybarn.Value("01:00:00.000000001", haybarn.sqltype("TIME_NS"))}),
             "STRUCT(t TIME)",
             "STRUCT(t TIME_NS)",
             id="a_nanosecond_for_microseconds",
@@ -475,7 +475,7 @@ def test_map_time_value_finer_than_its_column_keeps_only_values_the_unit_holds(
 ):
     mapped = duckdb_cursor.sql(f"select {source} as a from range(1) t(i)").map(function)
     expected = f"Invalid Input Error: UDF column type mismatch, expected [{sql_type}], got [{returned}]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -487,7 +487,7 @@ def test_map_time_value_outside_the_range_of_its_columns_unit_is_refused(duckdb_
     expected = (
         "Invalid Input Error: UDF column type mismatch, expected [STRUCT(t TIMESTAMP_NS)], got [STRUCT(t TIMESTAMP)]"
     )
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -507,7 +507,7 @@ def test_map_time_value_outside_the_range_of_its_columns_unit_is_refused(duckdb_
 def test_map_identity_of_a_list_whose_floats_may_have_rounded_is_refused(duckdb_cursor, values, sql_type):
     mapped = duckdb_cursor.sql(f"select {values} as a").map(lambda df: df)
     expected = f"Invalid Input Error: UDF column type mismatch, expected [{sql_type}], got [DOUBLE[]]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -540,26 +540,26 @@ def test_map_narrow_integer_list_with_an_int_beyond_its_range_is_refused(duckdb_
     mapped = duckdb_cursor.sql(f"select {source} as a").map(_apply_to_a(lambda v: values))
     sql_type = duckdb_cursor.sql(f"select {source} as a").types[0]
     expected = f"Invalid Input Error: UDF column type mismatch, expected [{sql_type}], got [{returned}]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
 @pytest.mark.parametrize("cell", [0, "x"], ids=["int", "str"])
 def test_map_scalar_returned_for_a_map_column_is_refused_and_the_database_stays_usable(cell):
-    con = duckdb.connect()
+    con = haybarn.connect()
     mapped = con.sql("select map(['k'], [1]) as a").map(
         lambda df: df.assign(a=pd.Series([cell] * len(df), dtype=object, index=df.index))
     )
-    with pytest.raises(duckdb.InvalidInputException, match=re.escape("UDF column type mismatch")):
+    with pytest.raises(haybarn.InvalidInputException, match=re.escape("UDF column type mismatch")):
         mapped.fetchall()
     assert con.sql("select 42").fetchall() == [(42,)]
 
 
 def test_map_text_of_a_map_for_a_stated_map_column_reads_as_the_cast_reads_it():
-    con = duckdb.connect()
+    con = haybarn.connect()
     mapped = con.sql("select map(['k'], [1]) as a").map(
         lambda df: df.assign(a=pd.Series(["{k=2}"] * len(df), dtype=object, index=df.index)),
-        schema={"a": duckdb.sqltype("MAP(VARCHAR, INTEGER)")},
+        schema={"a": haybarn.sqltype("MAP(VARCHAR, INTEGER)")},
     )
     assert mapped.fetchall() == [({"k": 2},)]
     assert con.sql("select 42").fetchall() == [(42,)]
@@ -575,7 +575,7 @@ def test_map_text_of_a_map_for_a_stated_map_column_reads_as_the_cast_reads_it():
 def test_map_timestamp_ns_column_handed_back_as_objects_keeps_its_nanoseconds(duckdb_cursor, value, nanoseconds):
     source = duckdb_cursor.sql(f"select {value} as a")
     mapped = source.map(lambda df: df.assign(a=df["a"].astype(object)))
-    assert mapped.types == [duckdb.sqltype("TIMESTAMP_NS")]
+    assert mapped.types == [haybarn.sqltype("TIMESTAMP_NS")]
     assert mapped.project("a::VARCHAR").fetchall() == source.project("a::VARCHAR").fetchall()
 
 
@@ -594,7 +594,7 @@ def test_map_timestamp_column_given_a_timestamp_with_nanoseconds_is_refused(duck
         lambda df: df.assign(a=pd.Series([stamp] * len(df), dtype=object, index=df.index))
     )
     expected = "Invalid Input Error: UDF column type mismatch, expected [TIMESTAMP], got [TIMESTAMP_NS]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -641,11 +641,11 @@ def test_map_timestamp_ns_column_given_a_timestamp_beyond_its_range_is_refused(d
     mapped = source.map(_returning(pd.Timestamp("9999-12-31")), schema=_schema_of(source, explicit_schema))
     if explicit_schema:
         expected = "UDF column 'a': Could not convert Timestamp to higher precision"
-        with pytest.raises(duckdb.ConversionException, match=re.escape(expected)):
+        with pytest.raises(haybarn.ConversionException, match=re.escape(expected)):
             mapped.fetchall()
     else:
         expected = "Invalid Input Error: UDF column type mismatch, expected [TIMESTAMP_NS], got [TIMESTAMP]"
-        with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+        with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
             mapped.fetchall()
 
 
@@ -696,18 +696,18 @@ def _returning(cell):
 def test_map_scalar_inside_a_container_of_a_type_holding_a_map_is_refused_and_the_database_stays_usable(
     sql_type, cell, cast_into, mode
 ):
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute(f"create table t (a {sql_type})")
     con.execute("insert into t values (NULL)")
     if mode == "append":
         run = lambda: con.append("t", pd.DataFrame({"a": pd.Series([cell], dtype=object)}))  # noqa: E731
     else:
-        schema = {"a": duckdb.sqltype(sql_type)} if mode == "explicit_schema" else None
+        schema = {"a": haybarn.sqltype(sql_type)} if mode == "explicit_schema" else None
         run = con.table("t").map(_returning(cell), schema=schema).fetchall
-    with pytest.raises(duckdb.Error) as error:
+    with pytest.raises(haybarn.Error) as error:
         run()
     message = str(error.value)
-    assert not isinstance(error.value, duckdb.FatalException), message
+    assert not isinstance(error.value, haybarn.FatalException), message
     if mode == "inferred":
         assert message.startswith(f"Invalid Input Error: UDF column type mismatch, expected [{sql_type}], got ["), (
             message
@@ -730,7 +730,7 @@ def _through(mode, con, sql_type, cell):
         con.execute("insert into t values (?)", [cell])
     else:
         con.execute("insert into t values (NULL)")
-        schema = {"a": duckdb.sqltype(sql_type)} if mode == "explicit_schema" else None
+        schema = {"a": haybarn.sqltype(sql_type)} if mode == "explicit_schema" else None
         return con.table("t").map(_returning(cell), schema=schema).fetchall()
     return con.table("t").fetchall()
 
@@ -746,11 +746,11 @@ def _through(mode, con, sql_type, cell):
 def test_map_of_a_key_list_beside_a_plain_value_for_a_map_type_is_refused_and_the_database_stays_usable(
     sql_type, cell, mode
 ):
-    con = duckdb.connect()
+    con = haybarn.connect()
     expected = (
         "A dict of 'key' and 'value' for a MAP takes a list of keys and a list of values, not VARCHAR[] and VARCHAR"
     )
-    with pytest.raises(duckdb.InvalidInputException, match=re.escape(expected)):
+    with pytest.raises(haybarn.InvalidInputException, match=re.escape(expected)):
         _through(mode, con, sql_type, cell)
     assert con.sql("select 42").fetchall() == [(42,)]
 
@@ -759,7 +759,7 @@ def test_map_of_a_key_list_beside_a_plain_value_for_a_map_type_is_refused_and_th
 def test_map_of_a_key_list_beside_a_plain_value_without_a_target_converts_as_a_struct(mode):
     # The conversion has no MAP to read for, so the dict is the STRUCT of its fields, which the engine casts into the
     # MAP of the two entries, the list as its text
-    con = duckdb.connect()
+    con = haybarn.connect()
     assert _through(mode, con, "MAP(VARCHAR, VARCHAR)", {"key": ["a"], "value": "b"}) == [
         ({"key": "[a]", "value": "b"},)
     ]
@@ -775,7 +775,7 @@ def test_map_of_a_key_list_beside_a_plain_value_without_a_target_converts_as_a_s
 )
 @pytest.mark.parametrize("mode", ["parameter", "dataframe_scan"])
 def test_dict_of_key_and_value_without_two_lists_is_inferred_as_a_struct(cell, struct_type, mode):
-    con = duckdb.connect()
+    con = haybarn.connect()
     if mode == "parameter":
         rows = con.execute("select ?, typeof(?)", [cell, cell]).fetchall()
     else:
@@ -799,12 +799,12 @@ KEY_AND_VALUE_STRUCTS = pytest.mark.parametrize(
 @KEY_AND_VALUE_STRUCTS
 @pytest.mark.parametrize("mode", ["inferred", "explicit_schema", "append", "appender", "parameter", "dataframe_scan"])
 def test_struct_with_fields_key_and_value_one_a_list_converts_as_its_struct(value, mode):
-    con = duckdb.connect()
+    con = haybarn.connect()
     source = con.sql(f"select {value} as a")
     expected = source.fetchall()
     frame = source.df()
     if mode == "dataframe_scan":
-        assert duckdb.connect().sql("select a from frame").fetchall() == expected
+        assert haybarn.connect().sql("select a from frame").fetchall() == expected
         return
     if mode in ("inferred", "explicit_schema"):
         schema = _schema_of(source, mode == "explicit_schema")
@@ -832,7 +832,7 @@ def test_struct_with_fields_key_and_value_one_a_list_converts_as_its_struct(valu
 @pytest.mark.parametrize("mode", ["inferred", "explicit_schema", "append"])
 def test_declared_struct_with_fields_key_and_value_reads_a_null_field_as_its_struct(value, mode):
     # A declared STRUCT names its fields, so such a dict is no NULL MAP of key and value lists
-    con = duckdb.connect()
+    con = haybarn.connect()
     source = con.sql(f"select {value} as a")
     expected = source.fetchall()
     if mode == "append":
@@ -848,15 +848,15 @@ def test_map_of_an_ordered_dict_for_a_stated_map_keeps_its_iteration_order(duckd
     ordered = collections.OrderedDict([("a", 1), ("b", 2), ("c", 3)])
     ordered.move_to_end("a")
     source = duckdb_cursor.sql("select MAP {'k': 1} as a")
-    mapped = source.map(_returning(ordered), schema={"a": duckdb.sqltype("MAP(VARCHAR, INTEGER)")})
+    mapped = source.map(_returning(ordered), schema={"a": haybarn.sqltype("MAP(VARCHAR, INTEGER)")})
     assert mapped.project("map_keys(a)").fetchall() == [(["b", "c", "a"],)]
 
 
 @pytest.mark.parametrize("mode", ["inferred", "explicit_schema", "append"])
 def test_struct_given_an_empty_dict_is_refused(mode):
     # A missing field reads NULL, but a dict of no keys is no STRUCT of the column's fields
-    con = duckdb.connect()
-    with pytest.raises(duckdb.TypeMismatchException, match="Cannot cast STRUCTs of different size"):
+    con = haybarn.connect()
+    with pytest.raises(haybarn.TypeMismatchException, match="Cannot cast STRUCTs of different size"):
         _through(mode, con, "STRUCT(a INTEGER, b INTEGER)", {})
     assert con.sql("select 42").fetchall() == [(42,)]
 
@@ -864,7 +864,7 @@ def test_struct_given_an_empty_dict_is_refused(mode):
 @pytest.mark.parametrize("mode", ["inferred", "explicit_schema", "append", "appender", "parameter"])
 def test_map_of_key_and_value_arrays_of_no_dimensions_reads_their_two_entries(mode):
     # An array of no dimensions holds a single value, so the dict is a plain one
-    con = duckdb.connect()
+    con = haybarn.connect()
     cell = {"key": np.array("a"), "value": np.array("b")}
     assert _through(mode, con, "MAP(VARCHAR, VARCHAR)", cell) == [({"key": "a", "value": "b"},)]
 
@@ -906,7 +906,7 @@ def test_map_identity_of_a_map_keyed_by_key_and_value_of_a_null_beside_a_list_or
 @pytest.mark.parametrize("mode", ["append", "appender", "parameter"])
 def test_map_of_a_null_key_entry_beside_a_plain_value_reads_its_two_entries(mode):
     cell = {"key": None, "value": 5}
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute("create table t (a MAP(VARCHAR, INTEGER))")
     if mode == "append":
         con.append("t", pd.DataFrame({"a": pd.Series([cell], dtype=object)}))
@@ -925,14 +925,14 @@ def test_map_of_a_null_key_entry_beside_a_plain_value_reads_its_two_entries(mode
 )
 @pytest.mark.parametrize("mode", ["inferred", "explicit_schema", "append"])
 def test_map_of_key_and_value_with_a_none_reads_a_null_map(cell, mode):
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute("create table t (a MAP(VARCHAR, VARCHAR))")
     if mode == "append":
         con.append("t", pd.DataFrame({"a": pd.Series([cell], dtype=object)}))
         assert con.table("t").fetchall() == [(None,)]
     else:
         con.execute("insert into t values (MAP {'k': 'v'})")
-        schema = {"a": duckdb.sqltype("MAP(VARCHAR, VARCHAR)")} if mode == "explicit_schema" else None
+        schema = {"a": haybarn.sqltype("MAP(VARCHAR, VARCHAR)")} if mode == "explicit_schema" else None
         assert con.table("t").map(_returning(cell), schema=schema).fetchall() == [(None,)]
 
 
@@ -956,10 +956,10 @@ def test_map_of_key_and_value_lists_reads_each_entry_as_a_dicts_entry_reads(
 
 
 def test_map_cast_error_for_a_nested_scalar_names_the_columns_type():
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute("create table t (a MAP(VARCHAR, INTEGER)[])")
     expected = "Conversion Error: Unimplemented type for cast (INTEGER -> MAP(VARCHAR, INTEGER))"
-    with pytest.raises(duckdb.ConversionException, match=re.escape(expected)):
+    with pytest.raises(haybarn.ConversionException, match=re.escape(expected)):
         con.append("t", pd.DataFrame({"a": pd.Series([[0]], dtype=object)}))
     assert con.sql("select 42").fetchall() == [(42,)]
 
@@ -1027,7 +1027,7 @@ def test_map_zoned_timestamp_with_nanoseconds_for_an_implied_timestamptz_is_refu
     duckdb_cursor.execute("SET TimeZone = 'UTC'")
     source = duckdb_cursor.sql(f"select {value} as a")
     expected = f"UDF column type mismatch, expected [{source.types[0]}], got [{returned}]"
-    with pytest.raises(duckdb.InvalidInputException, match=re.escape(expected)):
+    with pytest.raises(haybarn.InvalidInputException, match=re.escape(expected)):
         source.map(_returning(cell)).fetchall()
 
 
@@ -1042,7 +1042,7 @@ def test_map_zoned_timestamp_with_nanoseconds_for_a_stated_timestamptz_reads_as_
         "list_element": ("TIMESTAMPTZ[]", [stamp], f"['{text}']"),
         "map_value": ("MAP(VARCHAR, TIMESTAMPTZ)", {"k": stamp}, f"{{k='{text}'}}"),
     }[place]
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute("SET TimeZone = 'UTC'")
     con.execute(f"create table t (a {sql_type})")
     if mode == "append":
@@ -1050,7 +1050,7 @@ def test_map_zoned_timestamp_with_nanoseconds_for_a_stated_timestamptz_reads_as_
         rows = con.sql("select a::VARCHAR from t").fetchall()
     else:
         con.execute("insert into t values (NULL)")
-        schema = {"a": duckdb.sqltype(sql_type)}
+        schema = {"a": haybarn.sqltype(sql_type)}
         rows = con.table("t").map(_returning(cell), schema=schema).project("a::VARCHAR").fetchall()
     assert rows == [(expected,)]
 
@@ -1060,7 +1060,7 @@ def test_map_nested_timestamp_with_nanoseconds_for_an_implied_timestamp_is_refus
     expected = (
         "Invalid Input Error: UDF column type mismatch, expected [STRUCT(t TIMESTAMP)], got [STRUCT(t TIMESTAMP_NS)]"
     )
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -1101,14 +1101,14 @@ FIVE_MICROSECONDS = np.datetime64("2020-01-01T00:00:00.000005123", "ns")
 def test_map_nested_timestamp_with_nanoseconds_for_a_stated_coarser_unit_reads_at_microseconds_as_at_the_top(
     sql_type, cell, expected, mode
 ):
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute(f"create table t (a {sql_type})")
     if mode == "append":
         con.append("t", pd.DataFrame({"a": pd.Series([cell], dtype=object)}))
         rows = con.sql("select a::VARCHAR from t").fetchall()
     else:
         con.execute("insert into t values (NULL)")
-        schema = {"a": duckdb.sqltype(sql_type)}
+        schema = {"a": haybarn.sqltype(sql_type)}
         rows = con.table("t").map(_returning(cell), schema=schema).project("a::VARCHAR").fetchall()
     assert rows == [(expected,)]
 
@@ -1138,14 +1138,14 @@ def test_map_timestamp_finer_than_a_stated_coarser_unit_reads_at_every_depth_as_
         "struct_field": ("STRUCT(t TIMESTAMP)", {"t": value}, f"{{'t': '{text}'}}"),
         "map_value": ("MAP(VARCHAR, TIMESTAMP)", {"k": value}, f"{{k='{text}'}}"),
     }[place]
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute(f"create table t (a {sql_type})")
     if mode == "append":
         con.append("t", pd.DataFrame({"a": pd.Series([cell], dtype=object)}))
         rows = con.sql("select a::VARCHAR from t").fetchall()
     else:
         con.execute("insert into t values (NULL)")
-        schema = {"a": duckdb.sqltype(sql_type)}
+        schema = {"a": haybarn.sqltype(sql_type)}
         rows = con.table("t").map(_returning(cell), schema=schema).project("a::VARCHAR").fetchall()
     assert rows == [(expected,)]
 
@@ -1163,20 +1163,20 @@ def test_map_tuple_reads_as_a_list_at_every_depth_so_a_struct_refuses_it(sql_typ
         "struct_field": (f"STRUCT(s {sql_type})", {"s": (3, 4)}),
         "list_element": (f"{sql_type}[]", [(3, 4)]),
     }[depth]
-    con = duckdb.connect()
+    con = haybarn.connect()
     con.execute(f"create table t (a {column_type})")
     con.execute("insert into t values (NULL)")
     if mode == "append":
         run = lambda: con.append("t", pd.DataFrame({"a": pd.Series([cell], dtype=object)}))  # noqa: E731
     else:
-        schema = {"a": duckdb.sqltype(column_type)} if mode == "explicit_schema" else None
+        schema = {"a": haybarn.sqltype(column_type)} if mode == "explicit_schema" else None
         run = con.table("t").map(_returning(cell), schema=schema).fetchall
     if mode == "inferred":
         expected = f"UDF column type mismatch, expected [{column_type}], got ["
-        with pytest.raises(duckdb.InvalidInputException, match=re.escape(expected)):
+        with pytest.raises(haybarn.InvalidInputException, match=re.escape(expected)):
             run()
     else:
-        with pytest.raises(duckdb.ConversionException, match=re.escape(f"(INTEGER[] -> {sql_type})")):
+        with pytest.raises(haybarn.ConversionException, match=re.escape(f"(INTEGER[] -> {sql_type})")):
             run()
     assert con.sql("select 42").fetchall() == [(42,)]
 
@@ -1186,7 +1186,7 @@ def test_map_decimal_column_handed_back_as_objects_of_18_digits_is_refused(duckd
     source = duckdb_cursor.sql("select 1234567890123456.78::DECIMAL(18,2) as a")
     mapped = source.map(lambda df: df.assign(a=df["a"].astype(object)))
     expected = "Invalid Input Error: UDF column type mismatch, expected [DECIMAL(18,2)], got [DOUBLE]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -1207,7 +1207,7 @@ def test_map_decimal_column_handed_back_as_objects_of_18_digits_is_refused(duckd
         ),
         pytest.param(
             "{'t': TIME '01:00:00'}",
-            duckdb.Value("01:00:00.000001000", duckdb.sqltype("TIME_NS")),
+            haybarn.Value("01:00:00.000001000", haybarn.sqltype("TIME_NS")),
             datetime.time(1, 0, 0, 1),
             id="whole_microseconds_into_microseconds",
         ),
@@ -1267,7 +1267,7 @@ def test_map_numpy_scalar_inside_a_struct_raises_the_conversions_error(duckdb_cu
         "Not implemented Error: UDF column 'a': Unable to transform python value of type "
         "'<class 'numpy.int64'>' to DuckDB LogicalType"
     )
-    with pytest.raises(duckdb.NotImplementedException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.NotImplementedException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -1335,7 +1335,7 @@ def test_map_object_column_of_zero_dimensional_arrays_reads_their_values(duckdb_
             cells[i] = np.array(int(v), dtype=object)
         return df.assign(a=pd.Series(cells, dtype=object, index=df.index))
 
-    mapped = duckdb_cursor.sql("select i as a from range(3) t(i)").map(arrays, schema={"a": duckdb.sqltypes.BIGINT})
+    mapped = duckdb_cursor.sql("select i as a from range(3) t(i)").map(arrays, schema={"a": haybarn.sqltypes.BIGINT})
     assert mapped.fetchall() == [(0,), (1,), (2,)]
 
 
@@ -1343,7 +1343,7 @@ def test_map_declared_column_read_error_names_the_column(duckdb_cursor):
     source = duckdb_cursor.sql("select i as n, {'x': i::INTEGER} as s from range(3) t(i)")
     mapped = source.map(lambda df: df.assign(n=df["s"]), schema=_schema_of(source, explicit_schema=True))
     expected = "Conversion Error: UDF column 'n': Unimplemented type for cast (STRUCT(x INTEGER) -> BIGINT)"
-    with pytest.raises(duckdb.ConversionException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.ConversionException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -1359,7 +1359,7 @@ def test_map_text_column_mixing_str_with_other_cells_reads_each_as_text_in_the_s
     duckdb_cursor, cells, expected
 ):
     source = duckdb_cursor.sql(f"select i::VARCHAR as a from range({len(cells)}) t(i)")
-    mapped = source.map(_text_cells(cells), schema={"a": duckdb.sqltypes.VARCHAR})
+    mapped = source.map(_text_cells(cells), schema={"a": haybarn.sqltypes.VARCHAR})
     assert mapped.fetchall() == [(value,) for value in expected]
 
 
@@ -1384,7 +1384,7 @@ def test_map_text_column_with_a_cell_of_another_kind_is_refused_without_a_schema
         _text_cells(["a", np.str_("c"), 5, None])
     )
     expected = "Invalid Input Error: UDF column type mismatch, expected [VARCHAR], got [INTEGER]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -1410,13 +1410,13 @@ def test_map_text_column_with_an_object_without_a_duckdb_type_is_refused_without
         f"Not implemented Error: UDF column 'a': Unable to transform python value of type '<class '{name}'>' to "
         "DuckDB LogicalType"
     )
-    with pytest.raises(duckdb.NotImplementedException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.NotImplementedException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
 def test_map_text_column_with_an_object_without_a_duckdb_type_reads_its_text_in_the_schema_type(duckdb_cursor):
     source = duckdb_cursor.sql("select i::VARCHAR as a from range(2) t(i)")
-    mapped = source.map(_text_cells(["a", Fraction(1, 3)]), schema={"a": duckdb.sqltypes.VARCHAR})
+    mapped = source.map(_text_cells(["a", Fraction(1, 3)]), schema={"a": haybarn.sqltypes.VARCHAR})
     assert mapped.fetchall() == [("a",), ("1/3",)]
 
 
@@ -1441,7 +1441,7 @@ def test_map_bit_value_reaching_the_function_as_its_storage_bytes_is_refused(
     source = duckdb_cursor.sql(f"select {value} as a from range(2) t(i)")
     mapped = source.map(function, schema=_schema_of(source, explicit_schema))
     expected = f"Invalid Input Error: UDF column type mismatch, expected [{sql_type}], got [{returned}]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -1464,19 +1464,19 @@ def test_map_time_column_of_times_with_and_without_a_zone(duckdb_cursor, explici
         assert zoned.fetchall() == [(datetime.time(1),)] * 3
     else:
         expected = "Invalid Input Error: UDF column type mismatch, expected [TIME], got [TIME WITH TIME ZONE]"
-        with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+        with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
             zoned.fetchall()
 
 
 def test_map_json_column_still_validates_its_text(duckdb_cursor):
-    schema = {"a": duckdb.sqltype("JSON")}
+    schema = {"a": haybarn.sqltype("JSON")}
     good = duckdb_cursor.sql("select 1 as a").map(_text_cells(['{"k": 1}']), schema=schema)
     assert good.fetchall() == [('{"k": 1}',)]
     bad = duckdb_cursor.sql("select 1 as a").map(_text_cells(["not json"]), schema=schema)
     expected = (
         "Conversion Error: UDF column 'a': Malformed JSON at byte 0 of input: invalid literal.  Input: \"not json\""
     )
-    with pytest.raises(duckdb.ConversionException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.ConversionException, match=f"^{re.escape(expected)}$"):
         bad.fetchall()
 
 
@@ -1521,9 +1521,9 @@ NEW_COLUMNS = pytest.mark.parametrize(
 
 @NEW_COLUMNS
 def test_map_new_object_column_reads_into_the_schema_type(duckdb_cursor, function, sql_type, values):
-    schema = {"a": duckdb.sqltypes.BIGINT, "s": duckdb.sqltype(sql_type)}
+    schema = {"a": haybarn.sqltypes.BIGINT, "s": haybarn.sqltype(sql_type)}
     mapped = duckdb_cursor.sql("select i as a from range(3) t(i)").map(function, schema=schema)
-    assert mapped.types == [duckdb.sqltypes.BIGINT, duckdb.sqltype(sql_type)]
+    assert mapped.types == [haybarn.sqltypes.BIGINT, haybarn.sqltype(sql_type)]
     assert mapped.fetchall() == list(enumerate(values))
 
 
@@ -1532,7 +1532,7 @@ def test_map_new_object_column_the_bind_frame_cannot_type_names_the_column_and_s
     duckdb_cursor, function, sql_type, values
 ):
     mapped = duckdb_cursor.sql("select i as a from range(3) t(i)").map(function)
-    with pytest.raises(duckdb.InvalidInputException, match=_no_type("s")):
+    with pytest.raises(haybarn.InvalidInputException, match=_no_type("s")):
         mapped.fetchall()
 
 
@@ -1549,7 +1549,7 @@ def test_map_new_object_column_with_a_cell_the_analyzer_cannot_read_names_the_co
         return df.assign(s=pd.Series(cells, dtype=object, index=df.index))
 
     mapped = duckdb_cursor.sql("select i as a from range(2048) t(i)").map(array_cell)
-    with pytest.raises(duckdb.InvalidInputException, match=_no_type("s")):
+    with pytest.raises(haybarn.InvalidInputException, match=_no_type("s")):
         mapped.fetchall()
 
 
@@ -1572,7 +1572,7 @@ def test_map_new_object_column_with_a_cell_the_analyzer_cannot_read_names_the_co
 def test_map_typed_input_column_the_function_moved_to_another_type_is_refused(duckdb_cursor, function, types):
     mapped = duckdb_cursor.sql("select i as a, i::VARCHAR as b from range(3) t(i)").map(function)
     expected = f"Invalid Input Error: UDF column type mismatch, expected [{types[0]}], got [{types[1]}]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -1607,7 +1607,7 @@ def test_map_typed_input_column_turned_into_objects_reads_a_wide_value_at_any_ro
         return df.assign(a=pd.Series([2**40 if i == row else int(v) for i, v in enumerate(df["a"])], dtype=object))
 
     mapped = duckdb_cursor.sql("select i as a from range(2048) t(i)").map(objects)
-    assert mapped.types == [duckdb.sqltypes.BIGINT]
+    assert mapped.types == [haybarn.sqltypes.BIGINT]
     assert mapped.fetchall() == [(2**40 if i == row else i,) for i in range(2048)]
 
 
@@ -1629,7 +1629,7 @@ def test_map_typed_input_column_turned_into_objects_reads_a_float_the_same_whate
     mapped = duckdb_cursor.sql("select i as a from range(2048) t(i)").map(objects)
     if outcome is None:
         expected = "Invalid Input Error: UDF column type mismatch, expected [BIGINT], got [DOUBLE]"
-        with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+        with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
             mapped.fetchall()
     else:
         assert mapped.fetchall() == [(sampled if i == 0 else outcome if i == row else i,) for i in range(2048)]
@@ -1656,11 +1656,11 @@ def test_map_typed_chunk_for_a_guess_widens_into_it(duckdb_cursor, sql_type, dty
 
 def test_map_double_input_column_turned_into_float_values_reads_them_as_double(duckdb_cursor):
     def floats(df):
-        cells = [duckdb.Value(float(v), duckdb.sqltypes.FLOAT) for v in df["a"]]
+        cells = [haybarn.Value(float(v), haybarn.sqltypes.FLOAT) for v in df["a"]]
         return df.assign(a=pd.Series(cells, dtype=object, index=df.index))
 
     mapped = duckdb_cursor.sql("select (i + 0.5)::DOUBLE as a from range(3) t(i)").map(floats)
-    assert mapped.types == [duckdb.sqltypes.DOUBLE]
+    assert mapped.types == [haybarn.sqltypes.DOUBLE]
     assert mapped.fetchall() == [(0.5,), (1.5,), (2.5,)]
 
 
@@ -1673,11 +1673,11 @@ def test_map_typed_input_column_turned_into_objects_of_a_narrow_type_reads_the_v
 
     mapped = duckdb_cursor.sql("select i::SMALLINT as a from range(3) t(i)").map(objects)
     if fits:
-        assert mapped.types == [duckdb.sqltypes.SMALLINT]
+        assert mapped.types == [haybarn.sqltypes.SMALLINT]
         assert mapped.fetchall() == [(0,), (1,), (2,)]
     else:
         expected = "Invalid Input Error: UDF column type mismatch, expected [SMALLINT], got [INTEGER]"
-        with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+        with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
             mapped.fetchall()
 
 
@@ -1688,7 +1688,7 @@ def test_map_new_object_column_named_otherwise_after_bind_reports_the_name_misma
 
     mapped = duckdb_cursor.sql("select i as a from range(3) t(i)").map(late_name)
     expected = "Invalid Input Error: UDF column name mismatch, expected [a, s], got [a, t]"
-    with pytest.raises(duckdb.InvalidInputException, match=f"^{re.escape(expected)}$"):
+    with pytest.raises(haybarn.InvalidInputException, match=f"^{re.escape(expected)}$"):
         mapped.fetchall()
 
 
@@ -1697,7 +1697,7 @@ def test_map_column_filled_from_a_null_typed_input_names_the_column_and_schema(d
         return df.assign(c=pd.Series(["x"] * len(df), dtype=object, index=df.index))
 
     mapped = duckdb_cursor.sql("select i as a, NULL as c from range(3) t(i)").map(fill)
-    with pytest.raises(duckdb.InvalidInputException, match=_no_type("c")):
+    with pytest.raises(haybarn.InvalidInputException, match=_no_type("c")):
         mapped.fetchall()
 
 
@@ -1709,13 +1709,13 @@ def test_map_column_a_first_map_added_as_none_and_a_second_fills_names_the_colum
         return df.assign(c=pd.Series([1] * len(df), dtype=object, index=df.index))
 
     mapped = duckdb_cursor.sql("select i as a from range(3) t(i)").map(add_none).map(fill)
-    with pytest.raises(duckdb.InvalidInputException, match=_no_type("c")):
+    with pytest.raises(haybarn.InvalidInputException, match=_no_type("c")):
         mapped.fetchall()
 
 
 def test_map_identity_of_a_null_typed_input_column_reads_null(duckdb_cursor):
     mapped = duckdb_cursor.sql("select i as a, NULL as c from range(3) t(i)").map(lambda df: df)
-    assert mapped.types == [duckdb.sqltypes.BIGINT, duckdb.sqltypes.SQLNULL]
+    assert mapped.types == [haybarn.sqltypes.BIGINT, haybarn.sqltypes.SQLNULL]
     assert mapped.fetchall() == [(0, None), (1, None), (2, None)]
 
 
@@ -1729,7 +1729,7 @@ def test_map_new_object_column_fails_on_the_first_chunk_with_a_value(duckdb_curs
         return df.assign(s=pd.Series(values, dtype=object, index=df.index))
 
     mapped = duckdb_cursor.sql("select i as a from range(4096) t(i)").map(late_values)
-    with pytest.raises(duckdb.InvalidInputException, match=_no_type("s")):
+    with pytest.raises(haybarn.InvalidInputException, match=_no_type("s")):
         mapped.fetchall()
     # The first chunk, of only None, was read before the second one failed.
     assert [rows for rows in rows_per_call if rows] == [2048, 2048]
@@ -1744,7 +1744,7 @@ def test_map_new_object_column_fails_on_the_first_chunk_with_a_value(duckdb_curs
         pytest.param(pd.NaT, id="pandas_NaT"),
         pytest.param(np.datetime64("NaT", "us"), id="numpy_NaT"),
         # pandas reads neither as missing; the conversion reads both as NULL
-        pytest.param(duckdb.NullValue(), id="duckdb_NullValue"),
+        pytest.param(haybarn.NullValue(), id="duckdb_NullValue"),
         pytest.param(np.ma.masked, id="numpy_masked"),
     ],
 )
@@ -1753,5 +1753,5 @@ def test_map_new_object_column_of_only_missing_values_stays_null(duckdb_cursor, 
         return df.assign(note=pd.Series([missing] * len(df), dtype=object, index=df.index))
 
     mapped = duckdb_cursor.sql("select i as a from range(3) t(i)").map(note)
-    assert mapped.types == [duckdb.sqltypes.BIGINT, duckdb.sqltypes.SQLNULL]
+    assert mapped.types == [haybarn.sqltypes.BIGINT, haybarn.sqltypes.SQLNULL]
     assert mapped.fetchall() == [(0, None), (1, None), (2, None)]

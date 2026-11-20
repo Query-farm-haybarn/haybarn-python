@@ -13,7 +13,7 @@ import gc
 
 import pytest
 
-import duckdb
+import haybarn
 
 pa = pytest.importorskip("pyarrow")
 
@@ -26,19 +26,19 @@ class TestArrowConnectionLifetime:
 
     def test_capsule_fast_path_survives_connection_gc(self):
         """__arrow_c_stream__ fast path (ArrowQueryResult): connection destroyed before capsule is consumed."""
-        conn = duckdb.connect()
+        conn = haybarn.connect()
         capsule = conn.sql(SQL).__arrow_c_stream__()  # noqa: F841
         del conn
         gc.collect()
-        result = duckdb.connect().sql("SELECT * FROM capsule").fetchall()
+        result = haybarn.connect().sql("SELECT * FROM capsule").fetchall()
         assert result == EXPECTED
 
     def test_materialized_capsule_survives_connection_gc(self):
         """A capsule over a materialized relation: connection destroyed before the capsule is consumed."""
-        conn = duckdb.connect()
+        conn = haybarn.connect()
         rel = conn.sql(SQL).materialize()
         capsule = rel.__arrow_c_stream__()  # noqa: F841
         del rel, conn
         gc.collect()
-        result = duckdb.connect().sql("SELECT * FROM capsule").fetchall()
+        result = haybarn.connect().sql("SELECT * FROM capsule").fetchall()
         assert result == EXPECTED

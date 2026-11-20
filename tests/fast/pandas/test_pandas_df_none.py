@@ -1,8 +1,8 @@
-import duckdb
+import haybarn
 
 
 class TestPandasDFNone:
     # This used to decrease the ref count of None
     def test_none_deref(self):
-        con = duckdb.connect()
+        con = haybarn.connect()
         df = con.sql("select NULL::VARCHAR as a from range(1000000)").df()  # noqa: F841

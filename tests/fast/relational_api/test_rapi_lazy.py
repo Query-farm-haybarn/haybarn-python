@@ -5,12 +5,12 @@ import traceback
 
 import pytest
 
-import duckdb
+import haybarn
 
 
 @pytest.fixture
 def con():
-    connection = duckdb.connect()
+    connection = haybarn.connect()
     connection.execute("CREATE SEQUENCE s")
     register_tick(connection)
     yield connection
@@ -113,7 +113,7 @@ class TestRelationsKeepNoResult:
 
     def test_the_interpreter_shows_the_suggestion_after_one_period(self, tmp_path):
         # The interpreter's own display adds the suggestion on every version, traceback formatting only from 3.12.
-        script = "import duckdb\nduckdb.connect().sql('SELECT 1 AS a').fetchone\n"
+        script = "import haybarn\nhaybarn.connect().sql('SELECT 1 AS a').fetchone\n"
         # Run outside the checkout, so the child imports the duckdb this process imported.
         shown = subprocess.run(
             [sys.executable, "-c", script], capture_output=True, text=True, timeout=120, check=False, cwd=tmp_path
@@ -184,7 +184,7 @@ class TestSqlWithParamsIsLazy:
 
     def test_an_error_raises_at_the_read(self, con):
         rel = con.sql("SELECT error(?)", params=["boom"])
-        with pytest.raises(duckdb.InvalidInputException, match="boom"):
+        with pytest.raises(haybarn.InvalidInputException, match="boom"):
             rel.fetchall()
 
 

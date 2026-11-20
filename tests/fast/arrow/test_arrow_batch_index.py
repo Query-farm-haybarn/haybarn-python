@@ -1,13 +1,13 @@
 import pytest
 
-import duckdb
+import haybarn
 
 pa = pytest.importorskip("pyarrow")
 
 
 class TestArrowBatchIndex:
     def test_arrow_batch_index(self, duckdb_cursor):
-        con = duckdb.connect()
+        con = haybarn.connect()
         df = con.execute("SELECT * FROM range(10000000) t(i)").df()
         arrow_tbl = pa.Table.from_pandas(df)  # noqa: F841
 

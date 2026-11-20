@@ -3,7 +3,7 @@
 This module wraps the scikit-build-core build backend because the identity of a
 build, the package version and commit and the DuckDB version and commit, has to
 be settled once and reach three places: the package metadata, the generated
-duckdb/_build_info.py module, and DuckDB's CMake. An sdist has no git history,
+haybarn/_build_info.py module, and DuckDB's CMake. An sdist has no git history,
 so it carries that identity in duckdb_packaging/build_info.json for the wheel
 build to read. PEP 517 allows an in-tree backend through `build-system.backend-path`,
 which also makes duckdb_packaging importable as the metadata provider.

@@ -13,14 +13,14 @@ from zoneinfo import ZoneInfo
 import pytest
 from packaging.version import parse as parse_version
 
-import duckdb
+import haybarn
 
 pl = pytest.importorskip("polars")
 pytest.importorskip("pyarrow")
 pl_testing = pytest.importorskip("polars.testing")
 
-from duckdb import polars_io  # noqa: E402
-from duckdb.polars_io import _pl_tree_to_sql, _predicate_to_expression  # noqa: E402
+from haybarn import polars_io  # noqa: E402
+from haybarn.polars_io import _pl_tree_to_sql, _predicate_to_expression  # noqa: E402
 
 EPOCH = datetime.datetime(1970, 1, 1)
 EPOCH_UTC = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
@@ -262,7 +262,7 @@ class TestDatetimeLiteralPushdown:
             expected_type = "TIMESTAMP WITH TIME ZONE"
             expected_us = (aware - EPOCH_UTC) // datetime.timedelta(microseconds=1)
         sql = _pl_tree_to_sql(json.loads(literal.meta.serialize(format="json")))
-        con = duckdb.connect()
+        con = haybarn.connect()
         con.execute("SET TimeZone = 'Asia/Kathmandu'")
         assert con.execute(f"SELECT typeof({sql}), epoch_us({sql})").fetchone() == (expected_type, expected_us)
 
@@ -307,7 +307,7 @@ class TestNonFiniteFloatLiteralPushdown:
 
             import polars as pl
 
-            from duckdb.polars_io import _predicate_to_expression
+            from haybarn.polars_io import _predicate_to_expression
 
             if sys.flags.optimize == 0:
                 sys.exit("assertions are not stripped")
@@ -899,7 +899,7 @@ class TestDecimalLiteralPushdown:
         # Decimal arithmetic under the default context rounds past 28 digits and writes small and large values in
         # exponent form, which the engine reads as a DOUBLE
         sql = _pl_tree_to_sql({"Scalar": {"Decimal": [unscaled, 38, scale]}})
-        value, data_type = duckdb.execute(f"SELECT {sql}, typeof({sql})").fetchone()
+        value, data_type = haybarn.execute(f"SELECT {sql}, typeof({sql})").fetchone()
         assert value == decimal.Decimal(f"{unscaled}E-{scale}")
         assert data_type.startswith("DECIMAL" if scale else ("INTEGER", "BIGINT", "HUGEINT")), data_type
 

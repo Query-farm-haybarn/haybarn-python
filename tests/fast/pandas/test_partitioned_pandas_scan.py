@@ -1,11 +1,11 @@
-import duckdb
+import haybarn
 import numpy
 import pandas as pd
 
 
 class TestPartitionedPandasScan:
     def test_parallel_pandas(self, duckdb_cursor):
-        con = duckdb.connect()
+        con = haybarn.connect()
         df = pd.DataFrame({"i": numpy.arange(10000000)})
 
         con.register("df", df)

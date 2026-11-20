@@ -3,7 +3,7 @@
 A package that keeps a module's globals alive past finalization leaves a fixed set of duckdb objects behind, which
 nanobind reports as leaked. Builds without assertions, every wheel among them, stay silent; Debug builds and builds
 with FORCE_ASSERT keep the report so that a real leak stays visible there. The private switch
-``_duckdb._set_leak_report`` turns the report on or off in any build, and the module's own nanobind domain keeps the
+``_haybarn._set_leak_report`` turns the report on or off in any build, and the module's own nanobind domain keeps the
 flag apart from other nanobind extensions in the process.
 """
 
@@ -18,7 +18,7 @@ import sysconfig
 import textwrap
 from pathlib import Path
 
-import _duckdb
+import _haybarn
 import pytest
 
 REPORT = "nanobind: leaked"
@@ -31,15 +31,15 @@ NO_CORE_DUMP = """
     """
 
 REPORT_ON = """
-    import _duckdb
+    import _haybarn
 
-    _duckdb._set_leak_report(True)
+    _haybarn._set_leak_report(True)
     """
 
 REPORT_OFF = """
-    import _duckdb
+    import _haybarn
 
-    _duckdb._set_leak_report(False)
+    _haybarn._set_leak_report(False)
     """
 
 
@@ -64,38 +64,38 @@ def _run(*parts: str) -> subprocess.CompletedProcess[str]:
 OVERLOAD_SIGNATURE_WITH_NUMPY = """
     from typing import overload
 
-    import duckdb
+    import haybarn
     import numpy
 
     @overload
-    def connect(database: str) -> duckdb.DuckDBPyConnection: ...
+    def connect(database: str) -> haybarn.DuckDBPyConnection: ...
     @overload
     def connect(database: None) -> None: ...
     def connect(database):
-        return None if database is None else duckdb.connect(database)
+        return None if database is None else haybarn.connect(database)
     """
 
 POLARS_FRAME_FROM_RELATION = """
-    import duckdb
+    import haybarn
     import polars as pl
 
-    pl.DataFrame(duckdb.connect(config={"threads": 1}).sql("select 1 as a"))
+    pl.DataFrame(haybarn.connect(config={"threads": 1}).sql("select 1 as a"))
     """
 
 CONNECTION_TYPE_KEPT = """
     import ctypes
 
-    import duckdb
+    import haybarn
 
-    ctypes.pythonapi.Py_IncRef(ctypes.py_object(duckdb.DuckDBPyConnection))
+    ctypes.pythonapi.Py_IncRef(ctypes.py_object(haybarn.DuckDBPyConnection))
     """
 
 CONNECTION_KEPT = """
     import ctypes
 
-    import duckdb
+    import haybarn
 
-    ctypes.pythonapi.Py_IncRef(ctypes.py_object(duckdb.connect(config={"threads": 1})))
+    ctypes.pythonapi.Py_IncRef(ctypes.py_object(haybarn.connect(config={"threads": 1})))
     """
 
 HELD_BY_CONSTRUCTION = [
@@ -108,7 +108,7 @@ no_report_on_a_free_threaded_build = pytest.mark.skipif(
 )
 
 
-@pytest.mark.skipif(_duckdb._assertions, reason="a build with assertions keeps nanobind's leak report")
+@pytest.mark.skipif(_haybarn._assertions, reason="a build with assertions keeps nanobind's leak report")
 @pytest.mark.parametrize(
     "script",
     [
@@ -123,7 +123,7 @@ def test_objects_held_past_finalization_are_not_reported(script):
     assert REPORT not in proc.stderr, proc.stderr[-2000:]
 
 
-@pytest.mark.skipif(not _duckdb._assertions, reason="a build without assertions silences nanobind's leak report")
+@pytest.mark.skipif(not _haybarn._assertions, reason="a build without assertions silences nanobind's leak report")
 @no_report_on_a_free_threaded_build
 @pytest.mark.parametrize("script", HELD_BY_CONSTRUCTION)
 def test_objects_held_past_finalization_are_reported_with_assertions(script):
@@ -168,7 +168,7 @@ def test_the_module_has_its_own_nanobind_domain():
 
 def _build_tree_cache() -> dict[str, str] | None:
     # An editable install loads the module from below its CMake build directory; an installed wheel has none.
-    for directory in Path(_duckdb.__file__).resolve().parents[:3]:
+    for directory in Path(_haybarn.__file__).resolve().parents[:3]:
         cache = directory / "CMakeCache.txt"
         if cache.is_file():
             entries = {}
@@ -193,4 +193,4 @@ def test_the_assertions_flag_follows_the_build_configuration():
     if cache.get("CMAKE_CONFIGURATION_TYPES"):
         pytest.skip("a multi configuration build tree does not record which configuration the module was built in")
     debug = cache.get("CMAKE_BUILD_TYPE", "").casefold() == "debug"
-    assert _duckdb._assertions is (debug or _cmake_bool(cache.get("FORCE_ASSERT", "")))
+    assert _haybarn._assertions is (debug or _cmake_bool(cache.get("FORCE_ASSERT", "")))

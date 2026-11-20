@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-import duckdb
+import haybarn
 
 READERS = ("read_json", "read_csv", "from_csv_auto")
 #: Every path shape the readers take at runtime: one path, a list literal, a list[str] variable, a list of
@@ -18,7 +18,7 @@ ACCEPTED_ARGUMENTS = ('"a"', '["a", "b"]', "paths", '[pathlib.Path("a")]', '[io.
 
 def annotated_calls():
     """The snippet mypy checks, and the line of each reader's call with a number."""
-    lines = ["import io", "import pathlib", "", "import duckdb", "", "con = duckdb.connect()"]
+    lines = ["import io", "import pathlib", "", "import haybarn", "", "con = haybarn.connect()"]
     lines.append('paths: list[str] = ["a", "b"]')
     refused = {}
     for reader in READERS:
@@ -34,7 +34,7 @@ def test_read_json_reads_every_file_of_a_list(tmp_path):
         path = tmp_path / f"{name}.jsonl"
         path.write_text(json.dumps({"x": name}) + "\n")
         paths.append(path)
-    con = duckdb.connect()
+    con = haybarn.connect()
     assert con.read_json([str(p) for p in paths]).order("x").fetchall() == [("a",), ("b",)]
     assert con.read_json(paths, format="newline_delimited").order("x").fetchall() == [("a",), ("b",)]
 
@@ -59,16 +59,16 @@ def write_two_files(con, tmp_path, extension):
     ],
 )
 def test_every_reader_reads_every_file_of_a_tuple(tmp_path, reader, extension):
-    con = duckdb.connect()
+    con = haybarn.connect()
     paths = write_two_files(con, tmp_path, extension)
     assert getattr(con, reader)(paths).order("x").fetchall() == [("a",), ("b",)]
 
 
 def test_an_empty_tuple_is_refused_like_an_empty_list():
     with pytest.raises(
-        duckdb.InvalidInputException, match="Please provide a non-empty list or tuple of paths or file-like objects"
+        haybarn.InvalidInputException, match="Please provide a non-empty list or tuple of paths or file-like objects"
     ):
-        duckdb.connect().read_json(())
+        haybarn.connect().read_json(())
 
 
 def run_mypy(*arguments):

@@ -9,11 +9,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-import duckdb
+import haybarn
 import numpy as np
 import pandas as pd
-from duckdb.sqltypes import BIGINT
-from duckdb.value.constant import IntegerValue, StringValue, TimestampNanosecondValue, Value
+from haybarn.sqltypes import BIGINT
+from haybarn.value.constant import IntegerValue, StringValue, TimestampNanosecondValue, Value
 
 TZ_PLUS_2 = dt.timezone(dt.timedelta(hours=2))
 UUID_TEXT = "12345678-1234-5678-1234-567812345678"
@@ -215,7 +215,7 @@ LONG_STRING_VALUES = {
 # Connecting costs a quarter second on a debug build, so the tests share one database.
 @pytest.fixture(scope="module")
 def database():
-    connection = duckdb.connect()
+    connection = haybarn.connect()
     # GLOBAL, so the reference's cursors convert in the same time zone.
     connection.execute("SET GLOBAL TimeZone = 'America/New_York'")
     yield connection
@@ -451,7 +451,7 @@ class TestNumpyScalars:
     )
     def test_a_numpy_value_without_a_cast_into_the_column_is_refused(self, con, column_type, value, match):
         con.execute(f"CREATE OR REPLACE TABLE t (x {column_type})")
-        with pytest.raises(duckdb.ConversionException, match=match), con.appender("t") as appender:
+        with pytest.raises(haybarn.ConversionException, match=match), con.appender("t") as appender:
             appender.append_row(value)
 
     @pytest.mark.parametrize(
@@ -497,7 +497,7 @@ class TestNumpyScalars:
         with con.appender("t") as appender:
             appender.append_row(1, np.datetime64("2024-05-08", "D"))
             # Past the range of a Python date item() gives the day count, which no cast takes into a TIMESTAMP
-            with pytest.raises(duckdb.ConversionException):
+            with pytest.raises(haybarn.ConversionException):
                 appender.append_row(2, np.datetime64("300000-01-01", "D"))
             appender.append_row(3, np.datetime64("2024-05-09", "D"))
         assert con.execute("SELECT i, x FROM t ORDER BY i").fetchall() == [
@@ -527,7 +527,7 @@ class TestNumpyScalars:
         with con.appender("t") as appender:
             appender.append_row([np.float64(1.5)])
         assert con.execute("SELECT x FROM t").fetchall() == [([1.5],)]
-        with pytest.raises(duckdb.NotImplementedException, match=r"numpy\.int64"), con.appender("t") as appender:
+        with pytest.raises(haybarn.NotImplementedException, match=r"numpy\.int64"), con.appender("t") as appender:
             appender.append_row([np.int64(1)])
 
     def test_an_ordinary_append_imports_no_numpy(self):
@@ -536,8 +536,8 @@ class TestNumpyScalars:
         script = textwrap.dedent(
             """
             import sys
-            import duckdb
-            con = duckdb.connect()
+            import haybarn
+            con = haybarn.connect()
             import decimal
             con.execute("CREATE TABLE t (x INTEGER, s VARCHAR)")
             with con.appender("t") as appender:
@@ -554,8 +554,8 @@ class TestNumpyScalars:
             """
             import sys
             sys.modules["numpy"] = None
-            import duckdb
-            con = duckdb.connect()
+            import haybarn
+            con = haybarn.connect()
             con.execute("CREATE TABLE t (x INTEGER, s VARCHAR)")
             import decimal
             with con.appender("t") as appender:
@@ -568,7 +568,7 @@ class TestNumpyScalars:
 
     def test_numpy_long_double_is_refused(self, con):
         con.execute("CREATE OR REPLACE TABLE t (x DOUBLE)")
-        with pytest.raises(duckdb.NotImplementedException, match="longdouble"), con.appender("t") as appender:
+        with pytest.raises(haybarn.NotImplementedException, match="longdouble"), con.appender("t") as appender:
             appender.append_row(np.longdouble("2.5"))
 
 

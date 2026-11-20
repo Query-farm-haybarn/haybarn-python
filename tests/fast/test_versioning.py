@@ -494,7 +494,7 @@ class TestResolveBuildInfo(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
-        (self.root / "duckdb").mkdir()
+        (self.root / "haybarn").mkdir()
         self.submodule = self.root / "external" / "duckdb"
         self.json_path = self.root / "build_info.json"
         self.commit_hash = self._patch("commit_hash", side_effect=self._commit_hash)
@@ -505,7 +505,7 @@ class TestResolveBuildInfo(unittest.TestCase):
         for name, value in {
             "PROJECT_ROOT": self.root,
             "BUILD_INFO_JSON": self.json_path,
-            "BUILD_INFO_MODULE": self.root / "duckdb" / "_build_info.py",
+            "BUILD_INFO_MODULE": self.root / "haybarn" / "_build_info.py",
         }.items():
             p = patch.object(bi, name, value)
             p.start()
@@ -789,23 +789,23 @@ class TestDuckDBDevVersion(unittest.TestCase):
 
 
 class TestPackageCommitAtRuntime(unittest.TestCase):
-    """duckdb.build_info() degrades to unknown without a usable generated module."""
+    """haybarn.build_info() degrades to unknown without a usable generated module."""
 
     def setUp(self):
-        self.version_module = pytest.importorskip("duckdb._version")
+        self.version_module = pytest.importorskip("haybarn._version")
 
     def test_missing_module(self):
-        with patch.dict(sys.modules, {"duckdb._build_info": None}):
+        with patch.dict(sys.modules, {"haybarn._build_info": None}):
             assert self.version_module._package_commit() == "unknown"
 
     def test_module_without_the_symbol(self):
-        with patch.dict(sys.modules, {"duckdb._build_info": types.ModuleType("duckdb._build_info")}):
+        with patch.dict(sys.modules, {"haybarn._build_info": types.ModuleType("haybarn._build_info")}):
             assert self.version_module._package_commit() == "unknown"
 
     def test_generated_module(self):
-        generated = types.ModuleType("duckdb._build_info")
+        generated = types.ModuleType("haybarn._build_info")
         generated.PACKAGE_COMMIT = PACKAGE_COMMIT
-        with patch.dict(sys.modules, {"duckdb._build_info": generated}):
+        with patch.dict(sys.modules, {"haybarn._build_info": generated}):
             assert self.version_module._package_commit() == PACKAGE_COMMIT
 
 

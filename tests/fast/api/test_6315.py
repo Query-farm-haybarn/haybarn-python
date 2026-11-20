@@ -1,10 +1,10 @@
-import duckdb
+import haybarn
 
 
 class Test6315:
     def test_6315(self, duckdb_cursor):
         # segfault when accessing description after fetching rows
-        c = duckdb.connect(":memory:")
+        c = haybarn.connect(":memory:")
         rv = c.execute("select * from sqlite_master where type = 'table'")
         rv.fetchall()
         desc = rv.description

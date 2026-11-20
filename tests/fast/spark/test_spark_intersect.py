@@ -1,8 +1,8 @@
 import pytest
 
-_ = pytest.importorskip("duckdb.experimental.spark")
+_ = pytest.importorskip("haybarn.experimental.spark")
 
-from duckdb.experimental.spark.sql.types import Row
+from haybarn.experimental.spark.sql.types import Row
 
 
 @pytest.fixture
